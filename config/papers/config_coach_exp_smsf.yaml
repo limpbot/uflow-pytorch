@@ -1,0 +1,129 @@
+[defaults]
+#config/papers/config_coach_exp_smsf.yaml
+# Model options
+run-tag: smsf
+run-start: new
+
+#state-of-the-art: 2021_04_19_v21_smsf
+
+model-load-tag: latest
+
+wandb-log-metrics: True
+wandb-log-state: True
+wandb-log-model: False
+
+#depth-abs-rel  oflow-epe-occ
+name-decisive-loss: A-eval/depth-abs-rel
+
+model-load-modules: {
+   '2021_04_19_v21_smsf': ['module_flow'],
+}
+#model-load-modules: {
+#   '2021_01_15_smsf': ['module_flow'],
+#  }
+
+# TRAIN
+train-seed: 34 #23
+train-dataset-name: kitti-raw-smsf
+
+#train-dataset-name: kitti-val
+#train-dataset-max-num-imgs: 2
+#train-dataset-index-shift: 0
+#val-dataset-max-num-imgs: 2
+#val-dataset-index-shift: 0
+#val-every-n-epoch: 40
+lr:           0.0002 # 0.0002 -> 0.00002
+lr-scheduler-steps: [23, 39, 47, 54]
+train-num-epochs-max: 62
+
+# kitti-raw-smsf, kitti-raw-smsf-eigen-zhou, kitti-multiview
+
+train-dataset-max-num-imgs: 2
+#val-dataset-max-num-imgs: 10
+#epoch-length: 10
+
+
+train-batch-size: 4
+train-accumulate-grad-batches: 1
+test-sflow-via-disp-se3: False
+
+# LOSSES
+loss-lvl-weights: [4., 0., 2., 1., 1., 1.] # [4., 4., 2., 1., 1., 1.]
+
+loss-disp-photo-lambda: 2.0 # 2.0
+
+loss-disp-smooth-lambda: 0.00048 # 0.00048 #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+# * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+loss-disp-smooth-order: 2
+loss-disp-smooth-edgeweight: 10 # 150 -> 15
+
+loss-disp-flow-cons3d-lambda: 0.4 # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-flow-cons3d-type: smsf # smsf or chamfer
+
+#loss-flow-se3cons-lambda: 0.
+#loss-flow-se3cons-norm-p: 2
+
+loss-flow-photo-lambda: 2. # 2. # 2.0
+loss-photo-type: ssim # census or ssim
+
+loss-flow-smooth-lambda: 800. # 800. # 800 # 800 # 200 * 2 * 2= 800
+loss-flow-smooth-order: 2
+loss-flow-smooth-edgeweight: 10 # 150 -> 15 | 10 / 2 (because img_gradient have stride=2)
+
+loss-disp-se3-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-se3-cons3d-type: smsf # smsf or chamfer
+
+loss-masks-non-occlusion-binary: True
+loss-nonzeromask-thresh-perc: 0.5
+
+loss-pts3d-norm-detach: False
+loss-smooth-type: smsf
+
+# ARCHITECTURE
+
+arch-res-width: 832
+arch-res-height: 256
+
+arch-leaky-relu-negative-slope: 0.1
+
+arch-modules-features-channels: [3, 32, 64, 96, 128, 192, 256]
+# actually smsf: [3, 32, 64, 96, 128, 192, 256]
+# default / uflow: [3, 32, 32, 32, 32, 32]
+# sflow-mono-sf [3, 16, 32, 64, 96, 128, 196]
+arch-modules-features-convs-per-lvl: 2 # 2 or 3
+
+arch-cost-volume-normalize-features: False
+
+arch-detach-context-disp-flow-lvlwise: False
+arch-detach-context-disp-flow-before-refinement: False
+
+arch-context-out-channels: 32
+arch-context-dropout: False
+arch-context-densenet: False
+
+arch-flow-out-channels: 3
+arch-flow-res: True
+arch-flow-dropout: False
+
+#arch-flow-via-transf: False
+
+
+arch-disp-separate: False
+arch-disp-out-channels: 1
+arch-disp-dropout: False
+arch-disp-res: False
+arch-disp-activation-before-refinement: False
+arch-disp-activation: sigmoid # sigmoid | relu
+arch-disp-rel-inside-model: True
+
+arch-modules-masks-num-outs: 0
+arch-se3-egomotion-addition: False
+arch-se3-encoded-cat-oflow: False
+
+
+# Optimization options
+optimization: adam
+
+# momentum is not passed through for adam.
+momentum:     0.0
+weight-decay: 0.0

@@ -1,0 +1,9 @@
+[defaults]
+
+# Dataset options
+datasets-dir: /home/sommerl/datasets
+
+# optional: specify different parent for models than working directory
+parent-runs-dir: /home/sommerl/models
+
+dataloader-num-workers: 3

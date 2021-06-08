@@ -1,0 +1,7 @@
+[defaults]
+
+# Model options
+models-dir: opticalflow_models
+model-tag: 2020_10_26_v5
+
+#val-dataset-max-num-imgs:

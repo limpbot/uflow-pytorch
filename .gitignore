@@ -1,0 +1,7 @@
+architectures/*
+# exception to the rule
+!architectures/.gitkeep
+
+uflow*
+__pycache__/*
+/wandb/

@@ -1,0 +1,3935 @@
+
+when does it happen, that distance is kept, but points belong to different transformations?
+
+next:
+    - is multiple assignment filter helpful?
+    - make grid-bounding-box constraint faster
+    - write brox with examples for no-noise data / noise data
+    - grid-bound: start bounding-box, later filtering
+
+next:
+    try:
+    a) only use overleap filter for first time
+        -> because other transformations are filtered out using se3/size
+    b) add grid-boudning-box constraint for initial hypotheses
+        -> allows to use maximum for overleap
+
+
+determine if points belong to same rigid-body-transformation:
+    1. fit rigid-body transformation
+    2. check if fitting is below threshold
+
+requires: at least 2 points for 6 dof
+
+question if there is a transformation found, it is the right transformation?
+-> i guess so
+
+1. find transformations between 2 points
+2. find connections of valid transformations and mask them
+   with distances use dijkstra/dbscan
+
+
+problem:
+    a) disparity not good enough
+    b) allows larger outsider by accumulating error
+
+
+tried:
+    a) dbscan -> problem: accumulating error
+    b) spectral clustering
+
+possible problems:
+    a) disparity not precise enough
+    b)
+new method:
+    1. find core points (as in dbscan)
+    2. calculate rigid-body transformation based on core points and their nearest neighbors
+    3. fuse similar transformations
+    4. assign all points to closest rigid-body transformation
+
+problem: why do we have this weird problem with reshaping/flattening of masks?
+
+notes:
+    1. some points keep the distance even though they do not belong together
+        -> this often results in a rectangle shape
+    2. usually the hypthesis are from points in the beginning (not points on the object)
+        -> perform multiple hypothesis (grid) and drop them if fitted transformation is bad
+
+insides:
+    generating new hypothesis is difficult to define
+    1. start with multiple hypothesis (se3 transformations)
+        -> only drop hypothesis if not enough "neighbors" are available
+    2. alternate assign points/calculate se3 transformation (k-means similar)
+        -> drop hypothesis
+            a) se3 transformations are too similar
+            or b) overlapping of points is too much
+
+    -> start with a lots of hypothesis and drop them eventually
+
+
+    problem of points belong to multiple transformations:
+        -> after overlaping:
+            -> ensure that points which could belong to multiple transformations belong to no transformations
+    !!!! this must also be implemented for multiple rounds, otherwise bad assignments is used
+    -> use only points which are used in 1 mask for transformation prediction
+
+why is optical-flow not as good as last one?
+    a) architecture
+    b) resolution
+    c) learning-rate
+    d) only-last lvl training
+
+why is depth from ego+disp / sflow+disp better than oflow+disp?
+    a) batch-size
+    b) architecture
+    c) disp-se3 disp-flow consistency?
+
+IMPORTANT: upsampling of sflow: do not use factor
+
+possibilities for smsf to not learn disp properly
+    - lowest lvl: im1_feature_pyramid = [im1 * 2.0 - 1.0] (at least for olding old)
+    - arch-flow-res: True
+    - arch-disp-activation-before-refinement: False
+    - do not use scale_inout for loss_disp_smooth
+                if self.args.loss_disp_smooth_lambda > 0.0:
+                loss_disp_smooth = (
+                    self.args.loss_disp_smooth_lambda
+                    * (1.0 / scale_inout)
+    - flow-smoothness or disp-flow-cons3d is problem
+    - upsampling layer instead of bilinear upsampling
+    - upsampling of sflow: do not use factor
+    - too much smoothness
+    - architecture problem
+    - pts3d non-detached ->
+    - disp-flow-3d-cons -> no (checked)
+    - balance sf/disp loss -> no (unlikely)
+
+are we learning disparity forward and backward?
+
+next:
+    - get visualization oflow / sflow / se3-decomposition
+    - continue run: 2021_04_17_v39_uflow_teachercrop
+        config/papers/config_coach_exp_uflow_teachercrop.yaml
+
+model_mapping/uflow_old_new.txt
+
+next:
+    check if uflow is still reporting to wandb and did not stop because i logged from my pc one time
+        -> note restart wont work because of old parameters -> parse_known_args
+    check if uflow-crop teacher is working
+    check if sflow is working
+    try to find really good optical-flow model with tensorboard and load it
+
+    visualize sflow
+
+config/papers/config_coach_exp_smsf.yaml
+config/papers/config_coach_exp_uflow_teachercrop.yaml
+
+teacher-student for edges could enhance flow-via-dispse3
+
+config/papers/config_coach_exp_uflow_dispflow3dcons.yaml
+config/papers/config_coach_exp_uflow_lr1e-4.yaml
+config/papers/config_coach_exp_uflow_lastlvlonly.yaml
+
+config/papers/config_coach_exp_smsf.yaml
+config/papers/config_coach_exp_uflow.yaml
+
+try smoothness with weight_inv for sflow: 3d
+
+try uflow only with last level backprop/ smaller network
+
+http://users.cecs.anu.edu.au/~samunda/pdf/Perera2015_Thesis.pdf
+other idea:
+    1. edge detection of non-aligned movements
+        - build similarity measurement by subtracting 2 distances in 3d
+            -> this gives patches of pointwise similarity
+                -> find orientations of least similarity,
+                    a) using svd on batch
+                    b) adding similarity vectors
+        - basically perform min-cut on edges (beacuse at edges we know that there should be only two classes in most cases)
+          -- worry svd is expensive, for 2x2 it can be solved analytically
+    2. transformations extraction of points at edge
+        note: for transformations points at edges are anyways most important information
+        -> multiple proposals
+    3. assign pixels to transformation proposals with probability
+
+    4. finetune proposals with
+
+
+config/papers/config_coach_exp_uflow_lr1e-4.yaml
+config/exps/r12/config_coach_exp_r12e19_disp_se3_mask3_trainall_kittimultiview_preloadse3_dispse3photo5.yaml
+
+config/papers/config_coach_exp_smsf.yaml
+config/papers/config_coach_exp_uflow_dispflow3dcons.yaml
+config/papers/config_coach_exp_uflow_trainsmsf.yaml
+
+config/exps/r12/config_coach_exp_r12e10_disp_se3_mask5_trainall_kittimultiview_preloadse3.yaml
+config/exps/r12/config_coach_exp_r12e17_disp_se3_mask5_trainall_kittimultiview_preloadse3_dispse3photo5.yaml
+config/exps/r12/config_coach_exp_r12e18_disp_se3_mask5_trainall_kittimultiview_preloadse3_bs1.yaml
+
+next:
+    - smsf: fix
+    - uflow: second stage trainer-student loss for edges
+    - scene-dec: try loss-disp-se3-cons-oflow-lambda: .4
+
+config/exps/r12/config_coach_exp_r12e10_disp_se3_mask5_trainall_kittimultiview_preloadse3.yaml
+config/exps/r12/config_coach_exp_r12e15_disp_se3_mask5_trainall_kittimultiview_preloadse3_accbat1.yaml
+config/exps/r12/config_coach_exp_r12e16_disp_se3_mask5_trainall_kittimultiview_preloadse3_accbat8.yaml
+
+findnigs:
+    a) outlier slope cannot be too high, so that new masks can be fit
+    b) exp-weight has to be high enough to make a big difference
+
+why is uflow not saved?
+    -> maybe it is because of
+
+why does smsf not work?
+
+try less strong mask
+
+compare optimization without separate mask optimization
+
+try loss-disp-se3-cons-oflow-lambda: .4
+
+try deeper se3 decoder
+
+config/exps/r12/config_coach_exp_r12e10_disp_se3_mask5_trainall_kittimultiview_preloadse3.yaml
+config/exps/r12/config_coach_exp_r12e11_disp_se3_mask5_trainall_kittimultiview_preloadse3_fwd.yaml
+config/exps/r12/config_coach_exp_r12e12_disp_se3_mask5_trainall_kittimultiview_preloadse3_fwd_addego.yaml
+config/exps/r12/config_coach_exp_r12e13_disp_se3_mask5_trainall_kittimultiview_fwd_catflow.yaml
+config/papers/config_coach_exp_uflow.yaml
+
+
+restart:
+    config/exps/r12/config_coach_exp_r12e6_disp_se3_mask0_trainall_smsf.yaml
+    config/exps/r12/config_coach_exp_r12e9_disp_se3_mask5_trainall_smsfmotepe5_preloadse3.yaml
+
+    perhaps aswell:
+    config/exps/r12/config_coach_exp_r12e5_disp_se3_mask5_trainall_smsf.yaml
+    try overfitting: only fwd, and maybe adding egomotion?
+
+config/exps/r12/config_coach_exp_r12e12_disp_se3_mask5_trainall_smsfmotepe5_preloadse3_consoflow0.yaml
+config/papers/config_coach_exp_uflow.yaml
+
+looking forward
+    1. masks potentially moving objects
+        -> spectral clustering using scene flow and thus point-wise distances / dbscan
+        signal 1:  outlier of egomotion
+        signal 2: distance based clustering
+    2. match masks of potentially moving objects
+    3. find transformations having masked encoder
+
+1. dbscan initial mask + se3 transformations
+2. refine mask + se3 transformations with
+    a) k-means (with merge clusters)
+    b) neural network which takes mask +
+
+config/exps/r12/config_coach_exp_r12e9_disp_se3_mask5_trainall_smsfmotepe5_preloadse3.yaml
+config/exps/r12/config_coach_exp_r12e10_disp_se3_mask5_trainall_smsfmotepe5_preloadse3_consoflow01.yaml
+config/exps/r12/config_coach_exp_r12e11_disp_se3_mask5_trainall_smsfmotepe5_preloadse3_fwd.yaml
+use oflow?
+
+restart:
+config/exps/r12/config_coach_exp_r12e4_disp_se3_mask5_train1000_smsf.yaml
+config/exps/r12/config_coach_exp_r12e5_disp_se3_mask5_trainall_smsf.yaml
+config/exps/r12/config_coach_exp_r12e8_disp_se3_mask5_train200_smsf.yaml
+
+changed:
+config/exps/r12/config_coach_exp_r12e4_disp_se3_mask5_train1000_smsf.yaml
+config/exps/r12/config_coach_exp_r12e5_disp_se3_mask5_trainall_smsf.yaml
+config/exps/r12/config_coach_exp_r12e6_disp_se3_mask0_trainall_smsf.yaml
+config/exps/r12/config_coach_exp_r12e7_disp_se3_mask0_trainall_smsfeigenzhou.yaml
+config/exps/r12/config_coach_exp_r12e8_disp_se3_mask5_train200_smsf.yaml
+
+problem: unblance of data: every imgpair where car moves, but what about other cars
+    -> prevents masking out of moving cars, because usually the dont move
+        -> cannot differentiate in the beginnnig between moving and non-moving objects
+            -> addego motion should help
+
+check if fwdbwd improves -> adapt configs it accordingly
+
+config/exps/r12/config_coach_exp_r12e1_disp_se3_mask5_val200_noegoadd_mot50_maskcons1.yaml
+config/exps/r12/config_coach_exp_r12e2_disp_se3_mask5_val200_noegoadd_mot50_dispse3photo0.yaml
+config/exps/r12/config_coach_exp_r12e3_disp_se3_mask5_val200_noegoadd_mot50_maskcons1_fwdbwd.yaml
+
+1. train curruciulum
+2. train optimization for egomotion first
+3. train multiple times on same
+
+overfitting on 100 imgpairs possible
+    -> how can i check if this is only overfitting?
+
+problem: no masks starting to optimized for 15000 imgpairs
+    -> problem probably is that each pair needs couple of optimizations (non-linear ones)
+        -> in contrast to supervised learning
+
+    -> possible problems: too much smoothing/mask-oflow-cons
+
+remember: sfm-net: activation = sigmoid (without normalization)
+
+
+
+next:
+    try: whole train-dataset: fwdbwd
+    check old smsf config to compare
+    write abstract more beatifully
+
+config/exps/r10/config_coach_exp_r10e20_disp_se3_mask5_train1000_noegoadd_mot50_fwdbwd_accbatch2.yaml
+config/exps/r10/config_coach_exp_r10e21_disp_se3_mask5_train1000_noegoadd_mot50_fwdbwd_accbatch1.yaml
+config/exps/r10/config_coach_exp_r10e22_disp_se3_mask5_train1000_noegoadd_mot50_fwdbwd_accbatch5.yaml
+config/exps/r10/config_coach_exp_r10e23_disp_se3_mask5_train1000_noegoadd_mot50_fwdbwd_accbatch2_preload200.yaml
+
+config/papers/config_coach_exp_smsf.yaml
+    -> try with less smoothness
+config/papers/config_coach_exp_uflow.yaml
+config/exps/r10/config_coach_exp_r10e17_disp_se3_mask5_train200_noegoadd_mot50_fwdbwd.yaml
+
+examine batch-size and learning rate on 200 imgs:
+
+note: pytorch-lightning:
+    lr_scheduler.last_epoch only increases after validation
+
+config/exps/r10/config_coach_exp_r10e7_disp_se3_mask5_val_noegoadd_mot50.yaml
+config/exps/r10/config_coach_exp_r10e8_disp_se3_mask5_val_egoadd_mot50.yaml
+config/exps/r10/config_coach_exp_r10e9_disp_se3_mask5_val_noegoadd_mot50_se3div01.yaml
+config/exps/r10/config_coach_exp_r10e10_disp_se3_mask5_val_egoadd_mot50_se3div01.yaml
+config/exps/r10/config_coach_exp_r10e11_disp_se3_mask5_val_noegoadd_mot50mask_se3div01.yaml
+config/exps/r10/config_coach_exp_r10e12_disp_se3_mask5_val_egoadd_mot50mask_se3div01.yaml
+config/exps/r10/config_coach_exp_r10e13_disp_se3_mask5_val200_noegoadd_mot50.yaml
+config/exps/r10/config_coach_exp_r10e14_disp_se3_mask5_val200_egoadd_mot50.yaml
+
+config/exps/r10/config_coach_exp_r10e15_disp_se3_mask5_val200_noegoadd_mot50_fwdbwd.yaml
+config/exps/r10/config_coach_exp_r10e16_disp_se3_mask5_val200_noegoadd_mot50_fwdbwd_catflow.yaml
+
+next:
+    fix visualization if error persists
+
+
+ddp problem: saving state:
+    RuntimeError: storage has wrong size: expected -8222377215809011754 got 576
+    -> only save for first process (per node)
+    -> done, requires checking
+
+changes: motionmask: 50 , se3div01mask
+
+config/exps/r11/config_coach_exp_r11e14_disp_se3_mask5_addego_lr5e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e15_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e18_disp_se3_mask5_addego_lr2e-4_dispse3photo0_maskse3div01.yaml
+config/exps/r11/config_coach_exp_r11e19_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0_maskse3div01.yaml
+
+File "/home/nematoli/uflow/lib/python3.8/site-packages/pytorch_lightning/callbacks/model_checkpoint.py", line 335, in _save_model
+    self.save_function(filepath, self.save_weights_only)
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/pytorch_lightning/trainer/properties.py", line 327, in save_checkpoint
+    self.checkpoint_connector.save_checkpoint(filepath, weights_only)
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/pytorch_lightning/trainer/connectors/checkpoint_connector.py", line 404, in save_checkpoint
+    atomic_save(checkpoint, filepath)
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/pytorch_lightning/utilities/cloud_io.py", line 65, in atomic_save
+    f.write(bytesbuffer.getvalue())
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/fsspec/core.py", line 121, in __exit__
+    self.close()
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/fsspec/core.py", line 149, in close
+    _close(self.fobjects, self.mode)
+  File "/home/nematoli/uflow/lib/python3.8/site-packages/fsspec/core.py", line 209, in _close
+    f.close()
+OSError: [Errno 122] Disk quota exceeded
+
+classes:
+    run-loader
+
+    clerk(run)
+
+    coach(run)
+        - model
+        - dataloaders
+        - optimizers
+        - pl-trainer
+            -> save_state (callback)
+            -> save_metrics (callback)
+
+    logging metrics: return the key "log" from training_step/training_step_end
+
+
+
+logger - metrics, logger - state
+    presenter(run)
+        -
+CARE:
+    training_step_end does have to return something for optimziation
+
+problem
+    non-zero movements
+        -> do not filter with eigen-zhou
+
+config/exps/r11/config_coach_exp_r11e13_disp_se3_mask5_addego_lr2e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e14_disp_se3_mask5_addego_lr5e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e15_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e16_disp_se3_mask5_nonaddego_lr5e-4_dispse3photo0.yaml
+config/exps/r11/config_coach_exp_r11e17_disp_se3_mask5_addego_lr2e-4_dispse3photo0_se3lay5.yaml
+
+problem: no masks with huge-dataset
+    try:
+        - smaller dataset (finding cars is easier)
+            -> didnt help
+        - try larger learning rate:
+        - try disp_se3_photo = 0 ?
+
+
+problem: wrong se3 transformations
+    try:
+        - deeper se3
+        - add uflow
+        -
+
+
+iman:
+    config/exps/r10/config_coach_exp_r10e7_disp_se3_mask5_val_noegoadd_mot50
+    config/exps/r10/config_coach_exp_r10e8_disp_se3_mask5_val_egoadd_mot50.yaml
+    config/exps/r10/config_coach_exp_r10e9_disp_se3_mask5_val_noegoadd_mot50_se3div01.yaml
+    config/exps/r10/config_coach_exp_r10e10_disp_se3_mask5_val_egoadd_mot50_se3div01.yaml
+
+next:
+    fix presenter
+    try se3-reg (add option)
+    improve code-structure (pytorch-lightning just for optimization)
+    try fwd-bwd
+    try better translation/rotation of objects otpimization
+
+NOTE: masks**2 / masks**2 for se3 update is very decisive!!!!
+
+next:
+    fix presenter
+    add options translation/rot sensitivity
+    problem translation/rotation of objects is not otpimized
+
+config/exps/r10/config_coach_exp_r10e5_disp_se3_mask5_val_addego_mot10.yaml
+config/exps/r10/config_coach_exp_r10e4_disp_se3_mask5_val_noegoadd_mot10.yaml
+config/exps/r10/config_coach_exp_r10e7_disp_se3_mask5_val_noegoadd_mot50.yaml
+config/exps/r10/config_coach_exp_r10e8_disp_se3_mask5_val_egoadd_mot50.yaml
+
+bug iman:
+history.step.num = step
+TypeError: 1.0 has type numpy.float64, but expected one of: int, long
+--> update protobuf to latest version
+pip install protobuf --upgrade
+
+
+next:
+    try with larger motion cost
+    add exponential term for score: exp((0.1-x)*50)
+    add hyperaparaams for outlier /
+
+config/exps/r11/config_coach_exp_r11e1_disp_se3_mask5.yaml
+config/exps/r11/config_coach_exp_r11e4_disp_se3_mask5_addego.yaml
+config/exps/r11/config_coach_exp_r11e2_disp_se3_mask5_accbatches1.yaml
+config/exps/r11/config_coach_exp_r11e3_disp_se3_mask5_accbatches10.yaml
+
+next:
+    - report masks
+
+next try:
+    - mask uncertainty for stable objects mask
+    - object motion separate divide by torch.sum(maksvalid)
+
+
+
+changes:
+    best: 500, 100, 0.01
+    also changed: not using disp-se3-inside mask but just oflow correct mask
+    # rotation
+        x[:, :, :3] = x[:, :, :3] * 0.002 -> 0.01 -> this is slower but hopefully rotation is learned aswell
+problem with binary transformation?
+
+problem:
+    a) slow object-motion optimisation-> dvivide by sum(mask_valid) instead of B*H*W
+    b) multiple masks together solve for same object
+
+next probleM:
+    -> solving with masks not binary, means uncertainty grows in regions where masks decrease
+
+q: why the hell are the masks not pulled towards the calculated ones?
+    -> solution initialization + always regualrizae each mask to 0.01
+
+PORBLEM MOST LIKE:
+    masks are always shifting tasks and thus cannot stabilize there se3 transformation
+
+next: add options for sensivity of se3 transformations
+
+next: try slower optimization procedure to work
+
+bugs:
+    if trained on multiple gpus, not all images are uploaded to wandb
+
+problems:
+    fwdbwd not working -> on rest
+    rotation not working -> currently
+    multiple images not working
+
+investigation of follwing params:
+    - egomotion separate or equal (make sure to adapt se3-sep loss as well)
+    - mask-sep-loss-lambda (offset+slope for uncertainty loss-relation)
+    - mask-smooth-loss-lambda
+    - oflow-se3-loss-sep lambda
+    - oflow-se3-loss-joint lambda
+    - disp-se3-photo lambda
+    - rot/transl sensitivity
+
+problem: fwd_bwd no masks
+
+problems masks 0. (softmax, se3-sep-loss) fights against 0.1 (mask-sep-loss)
+
+real problem: masks 0.1 starts everywhere, not especially in regions where loss_egomotion is bad
+
+Problem why are masks not pulled to 0.3|0.3|0.3 even thoug loss seems fine
+    -> why seems binary masks in separate se3s seem to work?
+        -> or not, what then?
+    -> is it softmax?
+        -> sigmoid+normalization changes something, but masks are still not appearing even though big loss
+    solved: problem was too much restriction due to movement: 1.0 - torch.exp(-pts3d_ftf_dist_to_ego * 100)
+we cannot simply use cross-product-oflow loss for masks binary
+    because at point of uncertainty : 0.3, 0.3, 0.3 masks -> other masks get not optimized
+        -> use joint loss
+
+problem masks loss
+    pxlwise: take score: exp(-loss) * (1.0 - exp(-dist_to_egomotion))
+        -> softmax for mask-prob-loss
+
+    pxlwise: take dist-to egomotion
+        ->
+
+    idea:
+        loss close to 0 and equal -> all egomotion
+        loss large and equal
+            a) already optimized -> distributed equally
+            b) egomotion not yet optimized -> all egomotion
+
+        delta_loss in [0, infinity]
+        score: loss_ego / (loss + 0.1)
+
+        use as score: delta loss to egomotion
+        exp(-delta_loss) exp(-loss)
+
+problem: loss on egomotion is large and other masks did not optimize
+    a) egomotion did not optimize already
+        -> masks all equal
+    b) egomotion did but it does not fit for this pixel
+        -> masks all equal
+
+Problem: 0.5 0.5 masks
+
+FINDING PROBLEM: most like flow includes shadow but we do not want to have a shadow included
+    -> shadow averages the flow, s.t. it is not completely forward
+
+        -> try: higher smooth mask (with edges)
+
+FINDING:
+    using proj-flow consistency only on last lvl improves mask
+
+TODO:
+    - fix curvature
+    - fix object motion (simply make it more sensitive? 0.1)
+
+
+next: thing about detaching egomotion when having motion from mask, otherwise we will always optimise egomotion as well
+
+FINDING: problem with lvl zero for proj2oflow-corr3d
+
+next:
+    try: mask smoothness -> factor 1 find mask faster and more accurate
+    try: are occlusion masks working?
+    try: loss for objects motion must be non-zero (if there are pixel inside)
+
+next:
+    try only fwd
+    try sigmoid
+    try larger oflow-cons loss
+    try mask_ego < 0.5 for new things
+
+next: try fit 1 but note the first one which is quite difficult
+
+FINDING: problem lies in oflow smoothness
+
+next: problem mask -> pxlwise loss for different transformations
+    loss oflow-cons is not perfect , so use photometrics loss aswel
+    loss for dynamic objects mask should only be applied on the points which egomotion does not fit very well
+    loss softmax: softmax on error should correspond to mask probability
+
+next : possible something wrong with masks, because of weird flow of car
+    photometric loss works against oflow-cons loss?
+
+FINDING FITTING POINTS (0,1 binary mask) works very well
+
+FINDING: translation should be more sensitive than rotation (factor 5 -> 5m distance to point)
+
+FINDING:
+ INPLACE?!!!! ogeo.pt3d_2_oflow
+
+next: do not save checkpoint with pytorch lightning
+
+PROBLEMS:
+    a) Mask Zero
+    b) Depth not precise enough
+    c) motion only gets coarse forward or backward
+
+
+TRY: explain theory on cross product cost for 3d points (why is it better than 2d pixel shift)
+    a) direction > shift
+    b) dont give turning such a high importance
+
+config/exps/r8/config_coach_exp_r8e2_disp_se3_mask_val_msig3_lr2e-5_bs24.yaml
+config/exps/r8/config_coach_exp_r8e3_disp_se3_mask_val_msig+soft3_lr2e-5_bs24.yaml
+
+config/exps/r8/config_coach_exp_r8e1_disp_se3_mask_val_msoft3_lr2e-5_bs24.yaml
+config/exps/r8/config_coach_exp_r8e4_disp_se3_mask_val_msoft3_lr2e-5_bs4.yaml
+config/exps/r8/config_coach_exp_r8e5_disp_se3_mask_val_msoft3_lr2e-5_bs48.yaml
+
+TRY: loss s.t. masks without loss are distributed over the whole map with factor < 0.3
+    -> corresponding se3 must be identity
+    (maybe instead of loss-mask-cons-oflow)
+
+TRY: oflow consistency for each mask-se3 pair single
+
+FINDING:
+    disp-se3 photoloss is quite a obstacle for optimization
+
+
+FINDING:
+    optimization
+        1. find fwd bwd
+        2. optimize for egomotion (average dynamic objects)
+        3. optimize for objects motion using masks
+
+FINDING:
+    using cross product on each level is quite performant
+
+FINDING:
+    use cross product for correlation cost
+
+TRY:
+    oflow-corr3d use it actually in 3d (still with only last level)
+
+FINDING:
+    use oflow-corr loss only on last level
+
+runs:
+#config/exps/r8/config_coach_exp_r8e1_disp_se3_mask_val_msoft3_lr2e-5.yaml
+config/exps/r8/config_coach_exp_r8e3_disp_se3_mask_val_msig+soft3_lr2e-5.yaml
+config/exps/r8/config_coach_exp_r8e2_disp_se3_mask_val_msig3_lr2e-5.yaml
+
+next : try
+    - corr3d normalized again because there was a mitake
+    -
+
+FINDINGS Problems Optimization:
+
+    FWD BWD optimizes against each other
+
+    disparity and disp-se3-mask-cons-oflow against each other
+        -> disparity evened out
+
+    loss:disp-se3-mask-cons-oflow >> loss:disparity-photo
+        -> disparity is smoothed averaged between disp1/disp2
+            -> se3 is drawn towards zero
+
+         -> idea: detach pts2 (then only pts1_ftf_bwrpd
+
+    loss:disp-se3-mask-cons-oflow << loss:disparity-photo
+        -> disparity more stable
+            -> too many masks used for to solve disp-se3-photo
+
+    FINDING:
+        proj2oflow optmizes much stronger for rotation than translation take care by dvividing se3[:3] / 2
+
+    FINDING:
+        rotation is not optimized because of different rotations often hinder each other
+
+    FINDING:
+        masks solve rotation
+        -> larger batch size to make rotations work directly are required?
+            because it is more difficult to find features optimizing few parameters
+    FINDING:
+        masks solve forward backward
+
+    FINDING:
+        starting se3 at zero is very decisive
+
+config/exps/r8/config_coach_exp_r8e1_disp_se3_mask_val_msoft3_lr2e-5.yaml
+config/exps/r8/config_coach_exp_r8e2_disp_se3_mask_val_msig3_lr2e-5.yaml
+config/exps/r8/config_coach_exp_r8e3_disp_se3_mask_val_msig+soft3_lr2e-5.yaml
+
+config/exps/r7/config_coach_exp_r7e10_disp_se3_mask_val_msoft3_lr2e-5.yaml
+config/exps/r7/config_coach_exp_r7e11_disp_se3_mask_val_msig3_lr2e-5.yaml
+config/exps/r7/config_coach_exp_r7e12_disp_se3_mask_val_msig+soft3_lr2e-5.yaml
+config/exps/r7/config_coach_exp_r7e13_disp_se3_mask_val_msoft3_lr1e-4.yaml
+config/exps/r7/config_coach_exp_r7e14_disp_se3_mask_val_msig3_lr1e-4.yaml
+config/exps/r7/config_coach_exp_r7e15_disp_se3_mask_val_msig+soft3_lr1e-4.yaml
+
+python coach.py -s config/config_setup_0.yaml -c config/config_coach_def_usceneflow.yaml -e config/exps/r7/config_coach_exp_r7e11_disp_se3_mask_val_msig3_lr2e-5.yaml
+
+problem:
+    too large learning rate: no masks
+    if we optimize disparity as well than at the beginning this disparity is trying to solve for dynamic objects
+
+bugs:
+    a) occlusion masks if only forward training
+    b) sflow/mask consistency loss
+
+
+ideas:
+    predict K masks and perform se3 transformation from fitting classic method
+        -> regularize masks: smoooth, same sizes
+            -> loss for masks: how good well do the points inside fit together
+
+    cost volume for masks: use disp+se3s+warping to calculate KxHxW mask cost volume
+
+next:
+  clean code
+  implement weight sharpening / google regulraization /
+    > we require something that makes sure if fwdbwd, that masks are not trying to solve this
+
+config/exps/r8/config_coach_exp_r8e1_disp_se3_mask_msoft3_msmooth2_flowproj02_lr2e-4.yaml
+config/exps/r8/config_coach_exp_r8e2_disp_se3_mask_msoft5_msmooth2_flowproj02_lr2e-4.yaml
+
+regularizaiton:
+ fwd-bwd problem:
+    a) only fwd
+    b) mask consistency fwd-bwd
+        -> problem less flexible model, less masks
+
+force 1 mask
+    weight sharpening
+    google regularization: (depth in the wild) object motion
+
+initiliazation
+
+
+next:
+config/exps/r7/config_coach_exp_r7e7_disp_se3_mask_val_msoft3_msmooth20_flowproj02_lr2e-4.yaml
+config/exps/r7/config_coach_exp_r7e8_disp_se3_mask_val_msignorm3_msmooth20_flowproj02_lr2e-4.yaml
+config/exps/r7/config_coach_exp_r7e9_disp_se3_mask_val_msoft3_msmooth0_flowproj02_lr2e-4.yaml
+
+problems: masks
+    a) random background mask -> initialization + mask smoothness
+    b) multiple masks for one point -> softmax
+    c) specific non-local optimization to deal with:
+            - forward backward
+            - se3-masks: ego-motion / no-relative motion
+                -> how can we prevent from ego-motion = no-motion?
+
+    moreover disparity might be wrong which can taks more difficult
+
+forward backward is a non-local optimization which makes it hard?
+
+se3 masks optimization has specifi
+
+problems of masks:
+    a) randomly choose 1 mask as background
+        -> fix one masks to 0 and use softmax?
+    b) if starting from scratch all transformations are zero until depth is learned
+
+non-report problem for aisgpu (except for images)?
+    -> multiple gpus: can not be the problem because iman could report everything in 10 hours -> probably 3 GPUS
+    -> pytorch lightning version: ?
+
+stuck problem:
+    problem: ddp yes, chamfer_distance yes
+    options: ninja
+
+    pytorch-lightning version: nope
+    pytorch version: nope
+
+    tmux: nope
+    other processes sirohik server
+
+    export PATH=$PATH:/home/sommerl/.local/bin
+
+consider using: find_unused_parameters=False (becaues so it is used every iteration)
+
+sudo lsof -i -P -n | grep LISTEN
+
+File "/home/nematoli/uflow/lib/python3.6/site-packages/torch/utils/cpp_extension.py", line 1402, in _run_ninja_build
+    sys.stdout.flush()
+AttributeError: 'NoneType' object has no attribute 'flush'
+
+problem: aisgpu ninja
+ile "/home/sommerl/.local/lib/python3.6/site-packages/torch/utils/cpp_extension.py", line 1500, in _run_ninja_build
+    sys.stdout.flush()
+AttributeError: 'NoneType' object has no attribute 'flush'
+
+
+problem disp not optimized
+
+problem: script not working
+    -> fixed
+
+fix wandb tmps (actually space problem)
+wandb.init(
+                reinit=True,
+                id='test3',
+                resume="allow",
+                project='sceneflow',
+                entity='oranges',
+                dir='.',
+            )
+
+configs:
+    config/exps/r7/config_coach_exp_r7e1_disp_se3_mask_flowproj02_scratch_lr1e-4.yaml
+    config/exps/r7/config_coach_exp_r7e2_disp_se3_mask_flowproj02_scratch_lr2e-4.yaml
+    config/exps/r7/config_coach_exp_r7e3_disp_lr2e-4_smooth2.yaml
+    config/exps/r7/config_coach_exp_r7e4_disp_lr2e-4_smooth02.yaml
+    config/exps/r7/config_coach_exp_r7e5_disp_lr2e-4_smooth002.yaml
+    config/exps/r7/config_coach_exp_r7e6_oflow.yaml
+
+3 Masks, from Scratch, Learning Rate (1e-4, 2e-4)
+Fix Pytorch-Lightning:
+
+    Two Models one Run-Dir
+    Two Models same initialization
+    16-Bit Precision: try to find tensors beyond 60000 or less 1e-6
+
+    next try less smoothness for disp (0.5, 0.1)
+
+    0.5 is reasonable because we do not average between vertical/horizontal flow
+
+learn disp without se3 to see how much we can get from it
+
+currently check if without new pytorch version also possible to log:
+
+now:
+    (hopefully) synced between gpus, but still 2 loggers (clerks are created and 2 run_dirs created)
+
+consider Classes:
+    pl.Module switch it to UsceneFlow
+    RunManager
+    Logger
+
+consider files:
+    usflow_data.py
+    usflow_model.py
+    usflow_loss.py
+    usflow_optim.py
+
+    clerk.py
+    usflow_pl.py
+
+    run_manager:
+        run():
+            1. clerk
+            2. usflow_pl
+            3. pl.fit
+
+consider Lib:
+    my_io.py
+
+missing: lookout for fix:
+    self.val_loss_min
+    self.epoch
+        for continuation consider setting manually:
+            self.current_epoch (for pl.module)
+
+    save "best"
+
+    save visualizations (directories not available)
+
+    working progress bar
+
+for validation log to metrics use master branch:
+pip3 install git+https://github.com/PyTorchLightning/pytorch-lightning.git
+
+    seeting seed with pytorch-lightning:
+        a)
+            pl.seed_everything()
+
+            # seed should be the first thing done because in ddp, model init needs to \\
+            # be the same on every process
+            model()
+            fit()
+        b) Just call pl.seed_everything(args.seed) in self.on_fit_start()
+        c) Trainer(deterministic=True)
+        d) look at dropout specifically
+            -> it can not be dropout because we do not optimize for uflow?, but we take uflow masks and even thoug it is frozen, we take difffernt masks?
+    next try less smoothness for disp (0.5, 0.1)
+        : 0.5 is reasonable because we do not average between vertical/horizontal flow
+
+    16-bit precision
+    -> does not optimize, probably because of too small/big tensors
+
+    why do we have 2 models with different parameters? (different initialization?)
+
+
+architecture engineering:
+
+    encoder - decoder what is good architecture
+    a) UNet (no upsampling)
+    b) UFlow output upsampling?
+
+    try optical flow as input
+
+problem: pytorch-lightning:
+    -> current dulication leads also to duplicate runs/dirs cause of duplicate coach
+
+1. unused params
+    self.find_unused_parameters
+    or forward pass problem
+2. model must be pickable
+
+aisgpu:
+    config/exps/r6/config_coach_exp_r6e7_disp_se3_lr2e-5.yaml
+    config/exps/r6/config_coach_exp_r6e11_disp_se3_lr2e-5_prec16.yaml
+
+next:
+    - solve 2531 / 2730 problem of train-dataloader
+        15177 / 6 = 2529.5
+        self.args.train_dataset_name kitti-raw-smsf-eigen-zhou
+        self.num_seq 802
+        self.num_imgpairs 15177
+        len train dataset 15177
+
+        len train dataloader 2530
+        len train iterator 2530
+
+        batch-size equal1: 15377, 15377/60 =  2562.83333333
+        -> for some reason pytorch-lightning chanegs the length of train dataloader
+
+    - implement params for pytorch-lightning
+        -> batch size for optimization
+        -> ddp / dp
+        Trainer(gpus=8,
+        ()
+        (gradient_clip_val=0)
+        accumulate_grad_batches=self.args.accumulate_grad_batches
+        gpus=-1
+        accelerator='ddp'
+            -> automatically selected, not possible for single gpu
+        precision=16
+            -> problem: disp_se3_photo = nan
+                -> matmul 16-bit, 400* 80 + 400 * 80 > 66000 which is limit for 16 bit preicision
+
+    - what about batch-normalization synced?
+        -> sync_batchnorm=args.bn_sync, (in trainer)
+
+    - creating coach run, where trainer is initialized and model is fit
+
+iman:
+    config/exps/r6/config_coach_exp_r6e1_disp_se3_mask_flowproj02.yaml
+    config/exps/r6/config_coach_exp_r6e2_disp_se3_mask_flowproj0.yaml
+    config/exps/r6/config_coach_exp_r6e4_disp_se3_mask_flowproj02_scratch.yaml
+
+    config/exps/r6/config_coach_exp_r6e6_disp_se3_mask_flowproj02_msigmoid+normalization.yaml
+    config/exps/r6/config_coach_exp_r6e9_disp_se3_mask_flowproj02_scratch_predisp.yaml
+    config/exps/r6/config_coach_exp_r6e10_disp_se3_mask_flowproj02_scratch_prefreezedisp.yaml
+
+left-over:
+    config/exps/r6/config_coach_exp_r6e3_disp_se3_mask_flowproj02_lr2e-6.yaml
+    config/exps/r6/config_coach_exp_r6e5_disp_se3_mask_flowproj02_msoftmax.yaml
+    config/exps/r6/config_coach_exp_r6e7_disp_se3_lr2e-5.yaml
+    config/exps/r6/config_coach_exp_r6e8_disp_se3_lr2e-6.yaml
+next:
+    config/exps/r6/config_coach_exp_r6e1_disp_se3_mask_flowproj02.yaml
+    config/exps/r6/config_coach_exp_r6e2_disp_se3_mask_flowproj0.yaml
+    config/exps/r6/config_coach_exp_r6e3_disp_se3_mask_flowproj02_lr2e-6.yaml
+    config/exps/r6/config_coach_exp_r6e4_disp_se3_mask_flowproj02_scratch.yaml
+    config/exps/r6/config_coach_exp_r6e5_disp_se3_mask_flowproj02_msoftmax.yaml
+    config/exps/r6/config_coach_exp_r6e6_disp_se3_mask_flowproj02_msigmoid+normalization.yaml
+    config/exps/r6/config_coach_exp_r6e7_disp_se3_lr2e-5.yaml
+    config/exps/r6/config_coach_exp_r6e8_disp_se3_lr2e-6.yaml
+
+consider running : 2021_03_04_v13_r5e1_disp_se3_mask_bs6 again
+
+next:
+    implement: arch-modules-masks-out-activation: softmax # sigmoid | softmax
+    2 more config for training only egomotion: learning rate start: 2e-5 / 2e-6 lr scheduler...
+
+do we have reason to belive that for masks a very great batch-size is required?
+    -> for se3 batch-size had to be greater (to not fit simply for single occation?)
+    -> for se3+masks?
+
+create hyper parameter framework for extensive testing?
+
+next:
+    - try masks not init at 0
+    - think about passsing on prior segmentation (kalman?)
+next:
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e1_disp_se3_mask_bs6.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e2_disp_se3_mask_bs6_m5.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e3_disp_se3_mask_bs6_m10.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e4_disp_se3_mask_bs6_flowproj02.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e5_disp_se3_mask_bs6_flowproj02_m5.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e6_disp_se3_mask_bs6_flowproj02_m10.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e7_disp_se3_mask_bs6_flowproj002.yaml
+    config/exps/r5_disp_se3_mask/config_coach_exp_r5e8_disp_se3_mask_bs6_flowproj2.yaml
+
+next:
+    - test oflow via sflow
+        -> done
+    - try out more masks 3 | 5 | 10
+    - try out oflow-consistencty loss (how large?)
+
+    - reduce batch size 6 by adding up (optimize_batch_size=6) , batch_size=3
+        -> done
+    - visualize masks discrete
+        -> done
+    - parallel on 2 gpus (try on aisgpu cluster)
+        -> done
+    - 16 bit precision training / mixed precision training
+
+
+    md2
+    - only forward pairs option
+    - resolution 1024x320
+
+unet implementation like md2
+    -
+2021_03_04_v13_r5e1_disp_se3_mask_bs6
+
+next:
+config/exps/r4_disp_se3/config_coach_exp_r4e9_disp_se3_bs6_chamfer02.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e10_disp_se3_bs6_chamfer2.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e11_disp_se3_bs6_dunet.yaml
+
+next:
+    1. start chamfer again
+    2. check sigmoid
+    3. try unet encoder for depth
+
+next:
+config/exps/r4_disp_se3/config_coach_exp_r4e3_disp_se3_freezebn.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e4_disp_se3_bs6.yaml
+
+config/exps/r4_disp_se3/config_coach_exp_r4e5_disp_se3_bs12.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e6_disp_se3_bs6_res.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e7_disp_se3_bs6_sigmoid.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e8_disp_se3_bs6_ds02.yaml
+config/exps/r4_disp_se3/config_coach_exp_r4e9_disp_se3_bs6_chamfer02.yaml
+
+next:
+    - try out with batch normalization and batch-size of 6
+
+next:
+    - enable freeze module option
+    - ensure continue is possible
+
+next:
+    - load modules from other runs
+        1. ensure runs available (run-id if not new / run-ids from model-load-modules)
+        2. load modules
+    - two runs with disp-smoothness 0.2 0.002
+
+why does monodepth2 outperform us?
+    - batch-size == 12
+
+    note: using normalized disparity for smooothness
+        mean_disp = disp.mean(2, True).mean(3, True)
+        norm_disp = disp / (mean_disp + 1e-7)
+    help="disparity smoothness weight" default=1e-3
+    --min_depth", default=0.1
+    --max_depth", default=100.0
+    img-grad-order= 1, edge-weight=1 (divide by 2**scale for each lvl)
+
+    --scales" default=[0, 1, 2, 3]
+    note: one less lvl
+    note: photo loss all same weighted!
+    note: upsampling (bilinear, not scaling disp) depth isntead of downsampling img
+
+    self.model_lr_scheduler = optim.lr_scheduler.StepLR(self.opt.scheduler_step_size=15, 0.1)
+    --learning_rate"  default=1e-4) (15 epochs 1e-4, 5 epcohs 1e-5)
+    --scheduler_step_size" default=15)
+    --num_epochs" default=20)
+
+
+data augmentation:
+    ->  i do not think that they use backward pairs
+
+
+trying out configs: (batch norm should not be updated in resnet)
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e2_oflow_disp_se3_scratch.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e3_oflow_disp_se3_scratch_multiscale.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e4_oflow_disp_se3_scratch_multiscale_sigmoid.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e5_oflow_disp_se3_scratch_multiscale_res.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e6_oflow_disp_se3_scratch_sigmoid.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e7_oflow_disp_se3_scratch_res.yaml
+    config/exps/r3_oflow_disp_se3/config_coach_exp_r3e8_oflow_disp_se3_scratch_multiscale_sigmoid_res.yaml
+
+get monodepth2 done:
+    enable 0 masks
+    go back for optical flow
+    disp (multiscale-loss, res/non-res, sigmoid/identity activation)
+         (not detach disp for disp-se3-photo loss)
+         actually there is no detachedment until now
+
+oflow unstable with resnet:
+    - try batch-size = 2
+        -> didnt help
+    - maybe it is also the combination of dropout with batch norm?
+
+    - or try turning batch normalization off?
+
+q: why does disparity oscillate when adding disp-se3-photo loss, even though pts3d.detach()?
+    -> possible: because of optimizers properties (1 momentum for all losses?)
+    -> possible: because optimizer is not loaded and thus gradients are too large in the beginning
+
+try out: reduce smoothness loss for disparity!
+
+try out: arch-cost-volume-normalize-features: True
+-> maybe reason for stabilization
+
+resnet: testing is worse but for training flow_photo loss is lower
+
+consider shifting output lvl: one up
+
+1. look at res result (with pwcnet-encoder)
+2. start with resnet-encoder (res/non-res whatever was better after one iteration for pwcnet-encoder)
+
+test flow res vs. non-res
+test disp sigmoid
+resnet for oflow
+
+q: why is total loss not like flow_ohoto + flow_smooth
+
+make sure config is not copied when branched!
+
+se3 transform:
+    - detach pts3d and only backprogate through pts3d_ftf ?
+    -
+
+things to try out for mask:
+    - do not downsample at the beginning -> only upsample once in the end (same for disp)
+
+
+things to try out for disparity:
+    - multiscale loss
+    - pass disparity to next level (+residual estimation)
+    - lower smoothness error ( lower lambda / increase edge weight) to enhance edges
+    - use refinement net layer (like pwc)
+    - do not use upsample after all layers but use upsample in the beginning (like monodepth2)
+
+    - do not downsample at the beginning -> only upsample once in the end (same for mask)
+
+next: mask net
+hind4sight
+
+state-encoder
+normalization: batch
+activation: prelu
+input_channels = 3
+self.chn = [32, 64, 128, 256, 256]
+# conv1: 9x9, 240x320 -> 120x160 (1)
+# conv2: 7x7, 120x160 -> 60x80 (2)
+# conv3: 5x5, 60x80 -> 30x40 (3)
+# conv4: 3x3, 30x40 -> 15x20 (4)
+# conv5: 3x3, 15x20 -> 7x10 (5)
+
+mask decoder
+normalization: batch
+activation: prelu
+wt_sharpening: True
+chn = [32, 64, 128, 256, 256]
+# conv1: 1x1, 7x10 -> 7x10
+# conv2: 3x4, 7x10 -> 15x20 (skip-add (4))
+# conv3: 4x4, 15x20 -> 30x40 (skip-add (3))
+# conv4: 6x6, 30x40 -> 60x80 (skip-add (2))
+# conv5: 6x6, 60x80 -> 120x160 (skip-add (1))
+# conv6: 8x8, 120x160 -> 240x320
+
+hind4sight se3 decoder
+activation: prelu (except last layer)
+# fcn1: -> 128
+# fcn2: 128 -> 256
+# fcn3: 256 -> num_se3 * dim
+
+
+reimplnt
+    1. object motion
+    2. egomotion
+use sigmoid
+use
+
+q2: why does unet use unpadded convolution and as a result have different size feature maps ?
+    -> does this not simply makes life more difficult?
+
+next:
+    - try to load everything from oflow and learn only depth
+
+trying again oflow_disp_sep with:
+    loss-disp-photo-lambda: 0.0  # 2.0
+    loss-disp-smooth-lambda: 0.  # 0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+
+q1: why is disp-smoothness > flow-smoothnes??? 0.17 instead of 0.026 even thoug flow is larger than disp?
+
+done:
+    - for loss-disp-smooth(case multiscale) added: * (1. / scale_inout)
+
+next:
+    - reorder linux partition
+
+next exps:
+    - try config_coach_exp_oflow_disp_sep(note: without multiscale loss, for better comparison with just oflow)
+    - try config_coach_exp_oflow_multiscale(note: with multiscale)
+    - do not use residual for disparity if separate net
+    - balance flow-disp lossto ensure better disp
+    - ensure resnet is not reinit
+    - try transpose convolution for upsampling in disparity decoder
+    - next try double photo losses(to have same magnitude as for uflow)
+    - more options for separate disp(use feature pyramid as encoder, upsample as official unet, use unet encoder)
+done:
+    - delete passphrase from aisgpu sshkey
+    - started md2/md2_chamfer experiments on aisgpu to see if they are working now
+
+next:
+    automatically find resnet modules and not reinit them
+
+Disp Exps:
+    - upconvolution instead of upsampling
+
+UNet Decoder:
+    for upsampling in depth decoder? (md2 uses upsample(nearest))
+           md2:
+           self.up = nn.Upsample(
+               scale_factor=2, mode='nearest', align_corners=True)
+
+           unet-orig:
+           self.up = nn.ConvTranspose2d(
+               in_channels, in_channels // 2, kernel_size=2, stride=2)
+
+           online:
+           self.up = nn.Upsample(
+               scale_factor=2, mode='bilinear', align_corners=True)
+    note: no normalization in original paper
+
+implementation of unet decoder in monodepth2 is weird
+    -> conv1 -> upsample -> cat -> conv2 -> conv_out
+    instead of cat -> conv1 -> conv2 -> conv_up -> conv_out
+-> network always outputs depth between 0-1
+
+aisgpu:
+CUDA_VISIBLE_DEVICES = 1 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/exps/se3/config_coach_exp_disp_se3_md2.yaml
+CUDA_VISIBLE_DEVICES = 2 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/exps/se3/config_coach_exp_disp_se3_md2_chamfer.yaml
+
+iman
+CUDA_VISIBLE_DEVICES = 1 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/exps/oflow_disp/config_coach_exp_oflow_disp_multiscale.yaml
+
+leo
+CUDA_VISIBLE_DEVICES = 1 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/exps/oflow/config_coach_exp_oflow.yaml
+
+next:
+    - fix overwriting of resnet for se3
+    - options for disp net:
+    input: a) 1xrgb b) 1xrgb + oflow c) context
+    architecture: a) monodepth b) packnet c)
+    - implement oflow loss for disp-se3-mask
+
+    - train only oflow for another day (to see if results are according to uflow ( or better because of more complex architecture)
+
+    - rename reconstructin loss to 3d consistency loss(rec -> cons3d)
+
+
+changes:
+    mask: masks_disp_flow_valid_l1 -> masks_flow_valid_l1
+        (does not make sense to mask out where disp is occluded when stereo images are not the input of the model?)
+    for flow smoothness loss(do not divide by pts3d_l1_norm)
+
+next:
+
+    make sure that loaded weights for resnet encoder are not overriden
+    enable 2d warping inside model
+    oflow instead of sflow(model: warp2d, train: no reconstruction loss, test: do not backproject sceneflow as oflow already available)
+    losses:
+        input: imgpairs_left, imgpairs_right
+        model: disps, se3s, flows, masks
+        disps_l1=
+
+
+        loss: disp_photo(occlusion mask(backward disp))
+        in : disps_l1, disps_r1, imgs_l1, imgs_r1
+        use:
+            pxl2d_l1_disp_ftf=disp_2_pxl2d(disps_l1)
+            pxl2d_r1_disp_ftf=disp_2_pxl2d(disps_r1)
+            masks_valid_l1_disp=pxl2d_2_mask_valid(
+                pxl2d_l1_disp_ftf, pxl2d_r1_disp_ftf)
+            calc_photo_loss(warp_pullbwd(imgs_r1, pxl2d_l1_disp_ftf), imgs_l1, masks_valid_disp,
+                            edge_weight, order)
+
+        loss: disp_smooth(edge weighting)
+        in : disps_l1, img1s_left
+        use: calc_smoothness_loss(disps_l1, imgs_l1, args_disp_smooth)
+
+        pts3d_l1=disp_2_pt3d(disps_l1)
+
+        flow_dim == 2:
+            pxls2d_l1_flow_ftf=oflow_2_pxl2d(flows_l1)
+        flow_dim == 3:
+            pts3d_l1_flow_ftf=pts3d_l1 + flows_l1
+            pxls2d_l1_flow_ftf=pt3d_2_pxl2d(pts3d_l1_flow_ftf)
+
+        pxls2d_l2_flow_ftf=reorder(pxls2d_l1_flow_ftf)
+        masks_valid_flow_l1=pxl2d_2_mask_valid(
+            pxls2d_l1_flow_ftf, pxls2d_l2_flow_ftf)
+
+        loss: flow_photo(occlusion mask(backward flow))
+        in : flows_left, flows_left_bwd, flows_left, imgs_l1, imgs_l2, (disps_left12, if flow_dim=3)
+        use: calc_photo_loss(warp_pullbwd(
+            imgs_l2, pxls2d_l1_flow_ftf), imgs_l1, masks_valid_flow_l1)
+
+        loss: flow_smooth(edge weighting)
+        in : flows_l1, imgs_l1
+        use: calc_smoothness_loss(flows_l1, imgs_l1)
+
+        loss: disp_flow_rec(occlusion mask)(if
+        in : disps_l1, disps_l2, masks_valid_flow_l1
+        do: pts3d_l2=disps_l2
+        use: warp_pullbwd(pts3d_l1_flow_ftf, pxl2d_l1_flow_ftf) -
+                          pts3d_l2 / chamfer_distance(pts3d_l1_ftf, pts3d_l2)
+
+        pts3d_l1_se3_ftf=disp_pose2pts3d(disps_l1, poses_l1)
+        pxl2d_l1_se3_ftf=project(pts3d_l1_pose_ftf)
+
+
+        # from here on losses are missing
+            (also rename options: loss sflow -> flow)
+        loss: disp_se3_photo(occlusion mask(backward flow))
+        in : masks_valid_flow_l1, imgs_l1, imgs_l2, pts3d_l1_se3_ftf, pxl2d_l1_pose_ftf
+        use: calc_photometric_loss(warp_pullbwd(
+            imgs_l2, pxl2d_l1_se3_ftf), imgs1_l1, masks_valid_flow_l1)
+
+        loss: disp_se3_rec(occlusion mask)
+        in : disps_l2, pts3d_l1_pose_ftf, pxl2d_l1_se3_ftf
+        use: warp_pullbwd(pts3d_l1_se3_ftf, pxl2d_l1_se3_ftf) - \
+                          pts3d_l2 / \
+                              chamfer_distance(pts3d_l1_se3_ftf, pts3d_l2)
+
+
+    think about automasking / min-reprojection loss / full-res multiscale
+
+    implement monodepth2-pose net exactly as they do
+    start experiments on aisgpu(aisgit / freiburg uni server seems to be down)
+next:
+    make sure that run_copy=True is uncommented for config inside run after copying
+    try chamfer for sflow_via_transf -> check smoothness factor
+
+next:
+    option run_start:
+
+tmux new-session - d - s sflow1 '
+CUDA_VISIBLE_DEVICES=1 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/config_coach_exp_usceneflow_iman.yaml
+
+monodepth2 eval pose:
+    'mono+stereo_1024x320'
+        dist_avg 0.11691592192277313
+        angle_avg 0.0006053368309221697
+
+    'mono+stereo_640x192'
+        dist_avg 0.07798184809478698
+        angle_avg 0.0004939322182326577
+
+    'mono+stereo_no_pt_640x192'
+        dist_avg 0.08283961534383706
+        angle_avg 0.0004876762129424606
+
+    note: when they evaluate they align the scale factor for couple of transformations(i guess 5)
+
+
+
+
+
+
+
+
+
+iman start:
+-s config/config_setup_0.yaml - c config/config_coach_def_usceneflow.yaml - e config/config_coach_exp_usceneflow_iman.yaml
+
+research option: is 3d warping model architecture useful for sceneflow/depth?
+    - try without warping(sflow from concatenated-features)
+    - try with 3d warping
+    - try with 2d warping(predicting sflow from oflow+depth)
+        - predict depth from single image
+        - predict depth from single image + optical flow
+
+note problems with pretraining using pixelwise-sflow:
+    - sceneflow 3d warping inside model is different from the start -> disp predictions changes aswell
+
+next:
+    1. load model partial(depth, context, features)
+    2. train depth with sflow-pixelwise
+    3. load model(depth, context, features) and test pose network
+        - input(imgs / features / context)
+        - try chamfer loss
+        - separate resnet/encoder yields improvements(monodepth2)
+        - in -(1x1) -> 256 - (3x3) -> 256 - (3x3) -> 256 - (1x1) -> 6 (renset18 pretrained with modified first layer s.t. imgpair is used)
+        - packnet: 7 convolutional layer stride-2 | 1 convolutional layer 1x1
+                    7x7, 5x5, 3x3, 3x3, 3x3, 5x5, 7x7
+                    channels: [in , 16, 32, 64, 128, 256, 256, 256, 6]
+                    kernels:  [7,  5,  3,   3,   3,   3,   3, 1]
+                    stride:   [2,  2,  2,   2,   2,   2,   2, 1]
+           for stride 2 convolutions: nn.GroupNorm(16, out_planes), nn.ReLU(inplace=True)
+
+         measure transformation errors: ate
+
+    - recheck chamfer with smoothness(note-iman: point registration from course mobile-robotics icp algorithm)
+    - recheck angle calculation(try log_rotation matrix to retrieve axis-angle reresentation then norm=angle)
+        -> done, seems stable
+    - implement: test transf
+
+next:
+    - make chamfer loss work for test_dataset.Tests.test_get_transf, to retrieve hyperparams for our implementation:)
+    - visualize masks in color
+        -> done
+    - ensure mask requires_grad
+    - add eigen split / eigen-zhou split
+        -> done
+    - pytorch chamfer
+    - why is masked_fill from hind4sight rodrigues implementation not working for me ?
+        -> actually it is only not working for this test, otherwise it wis working(probably because only then it is completely zero?)
+    - additional masking loss
+    - fix gradient for log_rot=0.0.0.
+        -> done
+    - load model partial(depth, context, features)
+    - create transformation test-set for kitti2015
+    - try upsample layer instead of bilinear-upsampling to retain finer details
+
+if disp-lvl-0 does not work for single mask
+    mask.detach_()
+    mask[:, :1]=1.
+    then we have a problem:
+        a) try different seed(maybe simply unstable)
+            -> solved problem
+        b) new implementation of mask transformation is wrong
+        c) something with the losses changed
+
+        -> what really solved it:
+            for transformation set first mask=1:
+            masks=torch.cat(
+                [torch.ones(size=(B, 1, H*W, 1), device=masks.device), masks[:, 1:]], dim=1)
+
+
+next:
+    - problem log-wandb-metrics is not overriden
+    - chamfer distance via neighbors(30 %
+        problem 2x3x160x160 -> 1.5 GB
+            -> requires smart division
+    - Presentation
+    - oflow instead of sflow(model: warp2d, train: no reconstruction loss, test: do not backproject sceneflow as oflow already available)
+    - masks
+    - double check se3 axisangle with hind4sight
+    - monodepth2 improvements:
+        - min reprojection loss ( in case of multiple sources: e.g. temporal + geometrical)
+        - automasking(stationary + dynamic objects)(photometric of warped images is larger then unwarped)
+    - get eigen-slit depth values(there are two kinds: non-improved / improved)
+    - parameter for so3 parametrization axisangle/exponential
+
+
+sudo / usr/bin/nvidia-uninstall
+sudo / usr/local/cuda-11.1/bin/cuda-uninstaller
+wget https: // developer.download.nvidia.com/compute/cuda/11.2.0/local_installers/cuda_11.2.0_460.27.04_linux.run
+sh cuda_11.2.0_460.27.04_linux.run
+
+wget https: // developer.download.nvidia.com/compute/cuda/11.1.0/local_installers/cuda_11.1.0_455.23.05_linux.run
+sh cuda_11.1.0_455.23.05_linux.run
+
+/ var/log/cuda-installer.log
+/ var/log/nvidia-installer.log
+
+1. disable graphical target:
+systemctl isolate multi-user.target
+
+2. unload kernel module
+modprobe - r nvidia-drm
+
+3. restart graphical target:
+systemctl start graphical.target
+
+next:
+    fix chamfer on aisgpu
+        -> done by exporting path to ninja: export PATH=$PATH: / home/sommerl/.local/bin
+
+    q: is axis-angle differentiation for rotation possible around zero?
+
+    - calc transformation/rotation difference for test
+        -> not very accurate
+
+    - double check if rotation optimization works
+        -> done(with given transf), even for axis_angle? not in that case(starting at zero)
+            axis=vec / (angle + 1e-7)(should we not detach the angle?)
+            -> to me it seems monodepth is effectively only predicting translation
+
+    - experiments:
+        1. census
+        2. try chamfer distance
+            -> run on aisgpu
+
+        3. using feautre maps as input for se3-module
+            -> run on tower
+
+        4. try split according to movement
+
+
+    - pruefungsamt(Towards Unsupervised Scene Understanding)
+
+    - clerk renaming:
+        stay: model_load_tag
+        new: run_tag
+        model_dir -> run_dir
+        model_tag -> run_id
+        args.parent_models_dir -> args.parent_runs_dir
+        args.models_dir -> args.runs_dir
+        -> done
+
+    - warp3d double check with monodepth2
+        -> done, seems good
+
+    - using feautre maps as input for se3-module
+
+    - try chamfer distance
+
+    - add run_tag
+
+    - try se3 modules for both feature inputs
+        -> not done yet,
+
+    - eigen split for training(as it deletes stationary input-pairs)
+        (eigen-zhou split does not seem to help, because work has worse results)
+        -> delete input-pairs which are stationary(based on oxts)
+
+    - add oxts(transformations) to dataset/evaluation(to watch improvements)
+        -> 1. actually use disp1, disp2, flow(mask) to calculate 2 pointclouds and match them with best transf
+           -> problem: trnasformation from pointcloud not very stable
+           2. compare gt_transf with pred_transf
+        -> possible solution ues icp
+
+    - enable to load models via wandb
+        -> clerk save(model, model_best, optimizer, scheduler, coach)
+        -> clerk return suitable model_dir
+        -> if wandb_log: log to wandb(metrics, files)
+            -> done, requires verification
+
+    - for evaluation: retrieve disp2 from disp1+sflow:
+        disps_left_img2=helpers.depth2disp(
+            points3d_left_img1_wrpd[:, 2:3], fx=proj_mats_left_fwd[:, 0, 0])
+        -> done
+       -> then sf-rec-loss is required to improve on this metric? (that is what self-mono-sf claims)
+
+    - sflow for evalaution forrrrm transf+disp
+
+
+
+done:
+    lvlwise se3
+
+next:
+    - commit and push
+    - try to trian with disp_residual
+    - run new experiment  on aisgpu6
+    - del computer name and retrieve all online runs instead
+        -> done, but not verified yet
+
+
+next: smaller se3 module(implement parameter for channels)(ctx-c1-...-cN-se3_uts)
+
+problem: add output log if continue run
+
+chamfer /
+without self-rec
+
+problem: disp -> 0
+    -> solution: pts3d_norm detach in losses
+    -> disp-lvl4 is lowered in 5th epoch
+
+problem: sflow -> 0
+    -> solution: zero sf_smoothness term?
+
+se3-sflow:
+    single losses zero
+
+    from sflow(min(se3-sflow - sflow)
+
+
+
+ctx(im1_feat, cost_volume, flow_up, disp_up, ctx_up)
+ctx -> disp1, disp2, oflow -> sflow
+ctx -> disp1, transf -> sflow
+ctx -> sflow
+
+2d: warping
+ctx -> oflow
+
+oflow, im1_feat, im2_feat -> disp1, disp2 -> sflow
+oflow, im1_feat, im2_feat -> disp1, transf -> sflow
+
+how to solve different resolution input?
+
+se3 architectuer:
+    hind4sight: 3 linear layers x -> 128 -> 256 -> se3-dim
+    monodepth2: multiple convolutional layers
+    sfm-net: fully connected layers x -> 512 -> 512 -> se3-dim ( or more)
+
+    1st: 13*4*32 x 128=212992
+    2nd: 128     x 256=32768
+    3rd: 256     x 3=768
+    total: 212992 + 32768 + 768=246528
+    -> single se3 prediction with coarsest ctx information?
+
+why use prelu?
+
+implement next:
+    - add time per train-epoch / val-epoch
+    - test batch_size=4 (same as in self-mono-sf)
+    - did self-mono-sf detach all occluded losses to speed up training?
+        -> no
+    - renaming options(no sflow)
+    - add option: number epochs: default 62
+        -> done
+    - renaming vars
+        -> done
+    - disp-activation=identity option
+        -> already implemented if disp-activaiton is not sigomid/relu then it is simply passed on
+    - detach 3dpoints_norm
+        -> done
+    - experiment
+        - detach 3dpoints_norm from sf-smooth, sf-rec, most likely have to use relu activation then s.t. disparity is optimized at all
+        - use residual disparity, should work as disp-photo regularizes it enought to be positive(disp-activation=identity)
+        - use uflow smoothness(perhaps with torch.abs instead of robust_l1)
+        - normalized cost volume(as in uflow)
+        - lighter feature pyramid architecture(as in uflow)
+        - census loss(as in uflow)
+        - try lvlwise optimization
+        - try disp activation for last level before refinement + loss in that lvl too
+        - try only last lvl loss(as in uflow)
+        - try align corners=False
+    - masks
+    - implement scene flow segmentation evaluation?
+        -> dynamic obj_map is available for testing(calculate iou for mask evaluation
+
+success:
+    - architecutre increased
+    - smoothness loss adapted
+    - seed introduced(perhaps their loss-parameters are optimized for their seed)
+
+paper:
+    - masks from optical flow
+    - instance segmentation state of the art?
+
+masks:
+    - representation of rotation/translation
+
+things to improve, disp-lvl4 does not converge at all at the beginning:
+         774: 30127  pts3d-lvl0-norm: 47.79371  pts3d-lvl4-norm:  2.43108  disp-lvl0-avg:  0.01566  disp-lvl4-avg:  0.14440  disp_photo:  5.46598
+    same at iteration 1940
+
+why does following change something(multiplied and divided by W_out)
+    -> is this because of robust_l1 or because of something else?
+        -> yes most likely because robust_l1 !!!! note !!! del robust_l1 !!! note !!!: robust_l1 makes sense because if flow is very low it is fine, it does not have to be zero !!!! note !!! initialization-seed seems to be very important
+
+loss_disp_smooth=(
+    self.args.loss_disp_smooth_lambda * W_out
+    * helpers.calc_smoothness_loss(
+        disps_left / W_out,
+        img1s_left_rs,
+        edge_weight=self.args.loss_disp_smooth_edgeweight,
+        order=self.args.loss_disp_smooth_order,
+        smooth_type=self.args.sflow_smooth_type
+    )
+
+next implement reconstruction loss in smsf:
+    -> did not change anything for smsf
+
+q: why is the disp_smooth loss so small in the beginning?
+
+checked occlusoin maps 50-80 % done
+
+is there a difference in network or is it only random seed difference at start?
+    -> does not seem like a real difference
+smsf: (commandline, seed: 2
+
+flow_f.abs().mean() tensor(0.3512, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(0.4638, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(0.6588, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.0327, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.0120, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.2569, device='cuda:0', grad_fn= < MeanBackward0 >)
+
+flow_f.abs().mean() tensor(0.5103, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(0.4780, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(0.8873, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.0470, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.4465, device='cuda:0', grad_fn= < MeanBackward0 >)
+flow_f.abs().mean() tensor(1.6689, device='cuda:0', grad_fn= < MeanBackward0 >)
+
+
+
+
+
+two options:
+    a) disp start at 0.3 * W * 0.5 -> (mean=0, variance=1) is not ensure for each lvl
+    b) disp start at 0 -> slow start, because points are far away
+
+    most likely due to disp in [0, W] instead of[0, 1]
+        -> sflow gets high -> disp gets decreased heavily by loss with . / pts1_norm
+        -> pts1_norm.detach() is an option as well
+
+initialization or forward pass may differ s.t.
+    abs(sflow) > 5
+    forward pass with disp in [0, 1] instead of[0, W] is more stable because variance=1 is ensured
+    -> same initial stability with relu instead of sigmoid * 0.3 * W
+
+implemented at smsf:
+    different upconv(does not change anything)
+
+next: different architecture?
+                      | ours-v1 | ours-v2 | smsf
+    complete | 4539040 | 5800088 | 5755000
+    feature_pyramid | 1040744 | 2048352 | 2048352
+    refinement | 522436 | 522436 | 522436
+    context | 2888000 | 3141440 | 3147220 (+flow+disp)
+    flow | 4335 | 4335 |
+    disp | 1445 | 1445 |
+    context_upsample | 82080 | 82080 | 36992
+
+    context_upsample
+    ours:
+          (0): ConvTranspose2d(32, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+          (1): ConvTranspose2d(32, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+          (2): ConvTranspose2d(32, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+          (3): ConvTranspose2d(32, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+          (4): ConvTranspose2d(32, 32, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
+
+    smsf(weird upconv)
+    but our implementation of upconv does not change anything
+    params  65664 (4 layers) instead of 82080 (5 layers)
+
+    class upconv(nn.Module):
+    def __init__(self, num_in_layers, num_out_layers, kernel_size, scale):
+        super(upconv, self).__init__()
+        self.scale=scale
+        self.conv1=conv(num_in_layers, num_out_layers, kernel_size, 1)
+
+    def forward(self, x):
+        x=nn.functional.interpolate(x, scale_factor=self.scale, mode='nearest')
+        return self.conv1(x)
+
+          (0): upconv(
+            (conv1): Sequential(
+              (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (1): LeakyReLU(negative_slope=0.1, inplace=True)
+            )
+          )
+          (1): upconv(
+            (conv1): Sequential(
+              (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (1): LeakyReLU(negative_slope=0.1, inplace=True)
+            )
+          )
+          (2): upconv(
+            (conv1): Sequential(
+              (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (1): LeakyReLU(negative_slope=0.1, inplace=True)
+            )
+          )
+          (3): upconv(
+            (conv1): Sequential(
+              (0): Conv2d(32, 32, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+              (1): LeakyReLU(negative_slope=0.1, inplace=True)
+            )
+          )
+
+
+implemented at smsf:
+    a) initializaiton
+    b) smoothness loss
+    -> so both should not be the rpoblem
+
+note: calc_smoothness_loss in smsf works fine, so it is most likely not the problem
+    but with: weights_inv=points3d_left12_norm.detach() + 1e-8 it also works ?
+al otgether
+     202: 30127  disp-lvl0-avg:  0.00364  disp_photo:  6.73452  disp_smooth:  0.00042  sf_photo:  5.52321  sf_rec:  0.27603  sf_smooth:  0.93570  sf:  6.73494  disp:  6.73494
+
+     203/30127  disp_lvl0_avg_ema=0.0074,  B-train/disp_ema=7.0107, B-train/disp_photo_ema=7.0104, B-train/disp_smooth_ema=0.0003, B-train/sf_ema=7.0107, B-train/sf_photo_ema=5.8440, B-train/sf_rec_ema=0.5174, B-train/sf_smooth_ema=0.6493,  sflow_lvl0_abs_avg_ema=0.8690, total_loss_ema=14.0214
+
+try with rec: (without sf-smooth)
+     221: 30127  disp-lvl0-avg:  0.00717  disp_photo:  5.65579  disp_smooth:  0.00024  sf_photo:  5.36105  sf_rec:  0.29499  sf_smooth:  0.00000  sf:  5.65604  disp:  5.65604
+
+     206/30127  disp_lvl0_avg_ema=0.0072 B-train/disp_ema=6.2195, B-train/disp_photo_ema=6.2193, B-train/disp_smooth_ema=0.0002, B-train/sf_ema=6.2195, B-train/sf_photo_ema=5.7604, B-train/sf_rec_ema=0.4591, B-train/sf_smooth_ema=0.0000, , sflow_lvl0_abs_avg_ema=1.2507, total_loss_ema=12.4390
+
+try without rec:
+     209: 30127  disp-lvl0-avg:  0.00725  disp_photo:  6.59366  disp_smooth:  0.00039  sf_photo:  5.27229  sf_rec:  0.00000  sf_smooth:  1.32176  sf:  6.59405  disp:  6.59405
+
+== >  204/30127  disp_lvl0_avg_ema=0.0148, B-train/disp_ema=6.7347, B-train/disp_photo_ema=6.7344, B-train/disp_smooth_ema=0.0003, B-train/sf_ema=6.7347, B-train/sf_photo_ema=6.0236, B-train/sf_rec_ema=0.0000, B-train/sf_smooth_ema=0.7111,  sflow_lvl0_abs_avg_ema=1.3335
+
+note: at the start sf_rec loss does not decrease so fast for smsf
+
+smsf:
+    disp_lvl0
+        - decreaes until 150 epoch: 0.008
+    epoch 1000:  disp_lvl0_avg_ema=0.0172
+    B-train/disp_photo_ema=5.7194, B-train/disp_smooth_ema=0.0003,
+    B-train/sf_photo_ema=5.2592, B-train/sf_rec_ema=0.2382, B-train/sf_smooth_ema=0.2222,
+    == >   B-train/disp_ema=5.7196,  B-train/sf_ema=5.7196, B, sflow_lvl0_abs_avg_ema=0.3297, total_loss_ema=11.4392
+ours;
+    disp_lvl0
+        - epoch 3000: 0.016
+
+next:
+    - implement different smothness loss smsf(stride=1 for gradient)
+    - check intrinsics for smsf for 3d_points in rec/smoothness loss
+    - align corners(dataset: False for losses: True)
+
+next:
+    test clone contradiction
+        -> does not seem to contradict anymore
+    test with beta=10
+        -> losses still same, but evaluation definitely improved 0.21, 0.18 -> 0.20, 0.165
+
+pip install pytorch3d
+
+next: think about clone operation
+    -> seems like gradients are just summed, so it should not be a problem
+        - this condradicts the problem that arised when cloned pxlcoords_left12_fwd(only backproped one) ?
+
+done recording: right train results
+
+try with:
+    loss-disp-smooth-order: 2
+    loss-disp-smooth-edgeweight: 5  # 150 -> 15
+    # * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+    # 0.00048 #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+    loss-disp-smooth-lambda: 0.00048
+
+    loss-sflow-rec-lambda: 0.4  # 0.2 * 2 = 0.4
+
+    loss-sflow-photo-lambda: 2.  # 2.0
+
+    loss-sflow-smooth-order: 2
+    # 150 -> 15 | 10 / 2 (because img_gradient have stride=2)
+    loss-sflow-smooth-edgeweight: 5
+    loss-sflow-smooth-lambda: 800.  # 800 # 200 * 2 * 2= 800
+
+next: test_smoothness loss
+      different implementations: 1st: -1 | 1, 2nd 1 | -2 | 1 vs. -1 | 2 | 1 should not matter
+      - ours: 1st: -1 | 0 | 1
+      note: consider dividing by two ? because range=stride is 2
+      img gradient: smsf: -1 | 1  vs. ours=uflow: -1 | 0 | 1
+      -> double beta?
+
+try with:
+    # * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+    # 0.00024 #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+    loss-disp-smooth-lambda: 0.00048
+    - then sf_smoothness loss would have to be twice as high as well?
+
+next: implement masks as in self-mono-sf(cuda + without flowinside)
+    think about align_corners
+
+
+decoder net:
+    - context -> motion(
+    - context -> masks(same as context -> disp)
+
+function: disp+intrinsics+masks+motion -> sflow
+
+losses:
+    - forward-backward consistency for motion
+        -> rec loss
+    - group smoothness
+        -> group smoothness: L1 of gradients
+        -> sparsity loss
+
+try with:
+    sflow-masks-non-occlusion-binary: True
+    sflow-feature-pyramid-conv-per-lvl: 2
+    result: almost no change
+
+loss evaluation(from 2 epochs on):
+    disp-photo: 2.9 vs. 3.5
+    disp-smooth: (1.0) 2e-5, 2e-5, 2e-5, ..., 4e-5 vs. (1.)1e-4, 7e-5, 9e-5, ..., 1.3e-4
+    sf-photo: 2.74 vs. 3.25
+    sf-smooth: 0.1305, ..., 0.13 vs. 0.06, ..., 0.045
+    sf-ref: 0.13, ..., 0.12 (and decreasing) vs. 0.2, ..., 0.24 ( and increasing)
+
+    -> disp-smooth too small factor of 2-4 (most likely 3)
+    -> sf-smooth too large factor of 2-3
+    -> photo in general too small factor of
+        possible reasons:
+            - other losses
+            - masks
+            - architecture
+            - augmentation
+            - balance sf/disp
+    -> sf-rec too small factor 2
+next:
+    - implement lr-scheduler
+        - check if current implementation works
+            -> done
+        - implement continuation
+            -> done
+        - implement milestones options / gamma options
+    - implement detach perhaps for occluded pixel(if it speeds up things?)
+    - rename options/variables
+
+
+
+!!!
+def normalize_pxlcoords(grid_xy):
+    # ensure normalize pxlcoords is no inplace
+    grid_xy=grid_xy.clone()
+!!!
+
+
+problem:
+    it seems like pxl_left12_ftf gets backprogattion wether from loss_sf_photo or from loss_sf_rec but not from both
+
+            -> !!! clone() before permute in interpolate2d!!!
+            -> !!! clone() before permute in interpolate2d!!!
+
+next: try align_corners=True
+    -> set align_cornesr=True
+
+probleme:
+    1. sf_rec sf_photo=nan
+        cannot be due to sflows/disps=none,
+            because debugging did not stop before
+            because sf_smooth would be nan as well then
+        -> guess sf_rec loss
+        -> problem persists!! (after 5k iterations)
+
+    2. sflows is nan at the start(at some random validation)
+        -> guess cost volume normalization
+    3. sflows too large and thus most likely warping out of frame
+        -> (guess no disp-smoothness)
+        -> guess sf_smooth decreases decrease of sflow
+        -> guess sf_rec prevents decreasing sflow
+            -> !!! clone() before permute in interpolate2d!!!
+
+next:
+    think about including forward warping for their occlusion masks
+    check reconstruction loss: too large(factor 6)
+        sflow: mean(abs(gt_sflow))=0.1107
+
+for interpolating: zero everthing that is outside!!!
+-> loss was fine, because we had masks, but inside network we propagated non-zeros this way
+
+another change: align_corners=True (for image resizing in coach uflow)
+
+problem: optimizing disp-photo only -> sflow-lvl0-abs from 2 -> 3K isntead of 2. -> < 1
+
+next check 3d warping:
+
+
+next: implement ema for report
+    -> it looks like it is just the basic average until that point(no exponential moving average)
+
+next: check if the right intrinics are loaded
+    -> should work(1 intrinsics per sequence)
+        self.imgpairs_seq_ids: array([0,  0,  0, ..., 31, 31, 31])
+    -> value range should be fine as it was similar to self-mono-sf
+
+
+next check calc_photo_loss:
+    check calculation
+        -> added for loss per pixel: .mean(dim= 1, keepdim = True)
+        -> loss per pixel equals, and for binary mask it results in same loss
+    check data input range(not rescaled to[-1, 1]?)
+        -> done range is [0, 1]
+
+next:
+    try boolean masks
+    -> does not solve disp fluctations
+    try without inside flow masks
+    -> does not solve disp fluctations
+
+optimizer: check
+    adam, lr=0.0002, betas(0.9, 0.999), eps: 1e-08, weight_decay: 0, amsgrad False
+    -> done
+
+model init check:
+    weight: kaiming_normal, bias: 0
+    -> done
+
+goal: disp goes down from 133 (0.16*832) to 5.5 (832*0.006)
+
+next: test occlusion maks threshold(probably important for dividing through masks)
+
+next: test disp-smoothness loss
+    -> corrected twice decreasement due to level
+
+next: test without cost_volume normalization
+    -> done, still not there
+
+B-train/disp_ema=16.0003, B-train/disp_photo_ema=15.9990, B-train/disp_smooth_ema=0.0013, B-train/sf_ema=16.0003,
+B-train/sf_photo_ema=9.0816, B-train/sf_rec_ema=2.2205, B-train/sf_smooth_ema=4.6982, disp_lvl0_avg_ema=0.0309,
+sflow_lvl0_abs_avg_ema=5.9499, total_loss_ema=32.0006
+
+236/30127
+B-train/disp_ema=6.8181, B-train/disp_photo_ema=6.8178, B-train/disp_smooth_ema=0.0003, B-train/sf_ema=6.8181,
+B-train/sf_photo_ema=5.7207, B-train/sf_rec_ema=0.4825, B-train/sf_smooth_ema=0.6149, disp_lvl0_avg_ema=0.0104,
+sflow_lvl0_abs_avg_ema=0.7626, total_loss_ema=13.6362
+
+1191/30127
+B-train/disp_ema=5.6065, B-train/disp_photo_ema=5.6062, B-train/disp_smooth_ema=0.0003, B-train/sf_ema=5.6065,
+B-train/sf_photo_ema=5.1882, B-train/sf_rec_ema=0.2177, B-train/sf_smooth_ema=0.2006, disp_lvl0_avg_ema=0.0189,
+sflow_lvl0_abs_avg_ema=0.2460, total_loss_ema=11.2130
+
+problem 4: why did I have two times nan for first-epoch validation:
+                aisgpu: dataloader-num-workers: 0
+                leo-tower: dataloader-num-workers: 3
+
+next: implement learning-rate-scheduler
+
+problem: 3: why is sf_rec loss at 3.2 ?
+
+self-mono-sf: sf-smooth: 0.06 disp-smooth: 0.0001
+
+q1: is disp/flow passed on upsampled? if so pls correct
+
+next: copy experiment yaml file
+
+next: for experiments specify only deviations in separate yaml file
+    -> done
+
+diff to self-mono-sf
+    - train-res-size
+    - cost_volume normalization
+
+problem 1:
+    sf_photo, sf_rec suddenly nan(with wrong hyperparams)
+
+problem 2:
+    .clone() required because otherwise permute breaks everything
+
+note self-mono-sf-losses:
+    disp-smoothness loss ONLY on left disparity(ts1/2)
+
+
+corrections:
+    try to delete .clone for points3d_left_img2_bwdwrpd, from pxlcoords_left_img1_fwdwrpd, by calculating before interpolation
+
+next:
+    - check 3d reconstruction loss once again
+        -> seems fine
+    - possibly augmentation fasten up training?
+
+    - implement self-mono-sf architecture: out:
+        64x208 -> 256x832
+        32x104 -> 128x416
+         16x52 -> 64x208
+          8x26 -> 32x104
+          4x13 -> 16x52
+        bilinear interpolation, align_corners=True
+
+
+next: add hostname to model-tag
+    import socket
+    print(socket.gethostname())
+    -> done
+
+pip install wandb - -upgrade
+wandb login 8a4f6b2e9820820c6be0eec0b24332bd02900c14
+
+import wandb
+
+# 1. Start a new run
+
+wandb.init(id= self.model_tag, resume = "allow", project = "sceneflow")
+wandb.config.update(self.args)
+wandb.log(dict)
+
+id=model_tag
+wandb.init(id= id, resume = "allow")
+
+# 2. Save model inputs and hyperparameters
+config=wandb.config
+config.learning_rate=0.01
+
+wandb.config.update(args)
+
+# 3. Log gradients and model parameters
+wandb.watch(model)
+for batch_idx, (data, target) in enumerate(train_loader):
+  ...
+  if batch_idx % args.log_interval == 0:
+    # 4. Log metrics to visualize performance
+    wandb.log({"loss": loss})
+
+resuming:
+from wandb.keras import WandbCallback
+wandb.init(project= "preemptable", resume = True)
+
+
+next: make code more efficient(less gpu memory and faster)
+
+experiment: 10.12-11.12
+    mine:       default(10.12 v77)  0.21
+
+    aisgpu0:    sflow-loss-backprop-lvlwise: False -> True (10.12 v3) 0.28
+
+    aisgpu1:    sflow-context-densenet: False -> True (10.12 v2) 0.21
+
+    aisgpu2:    sflow-loss-balance-sf-disp: False -> True (10.12 v1) 0.21
+
+    mine:       loss-sflow-rec-lambda: 0.02 -> 0.2 (11.12 v1)
+
+next options:
+    - balance disp/sf sflow-loss-balance-sf-disp
+    - ensure non-zero-mask percentage sflow-nonzeromask-thresh-perc
+
+    - smooth/rec losses on upscaled
+
+install black: pip install black
+install file watchers
+-> add for file watchers:
+Program: $PyInterpreterDirectory$/ black
+Arguments: $FilePath$
+Working Directory: $ProjectFileDir$
+
+
+next: go through propagataion one by one and check for sense
+
+next change architecture to assemble the one of self-mono-sf with
+
+next check architecture once again
+    - output level is upsampled by factor of 4! (lowest two levels are not outputed)
+
+adaptions:
+    - fixed rec loss
+        - using fwdwrpd 3d-points from first timepoint
+        - stabilize in case mask is all zeros
+
+    - added: sflow-loss-photo-upscale-factor: 1.
+
+    - tried out with larger disp, but required lower learning rate to not diverge
+
+next:
+    check flow_inside_mask perhaps 50 % rule or change 3d rec loss
+
+    add model architecture options
+        - use disp activation in last layer which is passed on for refinement
+        - use higer resolution output(output_lvl=0)
+
+    granular output(even though smoothness losses are
+        self-mono-sf: sf-smooth: 0.06 disp-smooth: 0.0001
+        ours:         sf-smooth: 0.065 disp-smooth: 0.045
+        -> possible that backpropagating upscaled version 640x640 improves results
+
+    run multiple experiments on cluster
+    - disp_smooth weight: 0.6 -> 6
+    - census loss as photometric loss
+
+next:
+    check lvlwise smoothness loss
+    -> corrected scale factor(divide by 2**i(where i is lvl))
+
+next:
+    check if sflow-loss-backprop-lvlwise is passed
+
+adaptions
+    - removed flow_inside masks -> no nan for 3d reconstruction
+        note1: not sure if mask for disp and sflow was a problem or only one of both
+        note2: disp-last-lvl shrinking and increasing a lot at the beginning(most likely due to not backpropgating loss completely)
+                -> add option
+
+adaptions:
+    multiplied mask_disp_valid to mask_sflow_valid
+
+    corrected reconstruction loss(i guess it was only magnitude mistake)
+
+    -> afterwards it is seeming more stable training with lr=0.0002, use_flow_res: True, no dropout context, activation_mode='relu'
+        -> actually just because of the activation mode
+
+
+pip install kornia == 0.2.2 (for pytorch 1.4)
+
+pptk-viewer does not work
+    Rename the libz.so.1 in site-packages/pptk/libs
+    e.g
+    cd ~/.local/lib/python2.7/site-packages/pptk/libs /
+    mv libz.so.1 libz.so.1.old
+    Create a soft link from / lib/x86_64-linux-gnu/libz.so.1 to the site-packages/pptk/libs
+    cd ~/.local/lib/python2.7/site-packages/pptk/libs /
+    sudo ln - s / lib/x86_64-linux-gnu/libz.so.1
+
+    1. cd venv/lib/python3.6/site-packages/pptk/libs
+    2. mv libz.so.1 libz.so.1.old
+    3. ln - s / lib/x86_64-linux-gnu/libz.so.1
+
+
+torch=1.4
+torchvision=0.5.0
+cd forward_package
+python setup.py install
+
+libcudart.so.11.0: cannot open shared object file: No such file or directory
+    -> export path/ld_library_path in pycharhm/bin/pycharm.sh
+
+corrections:
+    loss-sflow-rec-lambda: 0.02  # 0.2 -> 0.02
+
+    divided smooth-edge-weight by(scale-factor/4.)
+
+    smaller learning rate prevents diverging
+
+non-robust: restart most likely due to out of range warping
+
+correction:
+    smoothness for sf must higher for lower lvl(because gradient decreases for lower lvl)
+
+next:
+    try:
+        # try:
+        #   self.disp_activation_mode = 'relu'
+        #   self.use_res_lvl_disp = True
+
+    print more beautiful
+
+    add train-dataset-size to caoch_uflow
+
+# TODO:
+changed to lvl-wise weight adaption
+added loss for 160x160 without refinement
+
+correction:
+    -> disparity non-activation on last layer
+    -> consider: context non-dropout
+
+problems:
+    disp -> 0, sflow -> inf
+    disp -> 48 stuck
+
+problem: sflow-diverges
+
+for disp loss only check what is back propagated?
+    -> eg. check occlusion_masks
+
+lower lvl loss of image or of feature-pyramid?: o
+    -> simply downscale input image
+
+q: what is decisive for robust start?
+next: ssim
+
+
+self-mono-sf: only applying weights for last output also seems to optimize well at the beginnning for disp at least
+-> so multiple-lvl loss should not be decisive for a robust start
+
+
+sflow-feature-pyramid-channels: [3, 16, 32, 64, 96, 128, 196]
+seems to be decisive s.t. disp is going down at the start of optimization(otherwise a weird local minima is attracting)
+
+next: does self-mono-sf add dropout even though they dont use res-lvl-disp?
+    -> no does not look like they use any kind of dropout
+
+    hypothesis: res-lvl-disp adds up too many values from start, s.t. it does not otpimize?
+
+
+self-mono-sf: losses
+normalize smoothness loss
+loss_3d_s=((_smoothness_motion_2nd(sf_f, img_l1_aug, beta=10.0) / (pts_norm1 + 1e-8)).mean() + \
+           (_smoothness_motion_2nd(sf_b, img_l2_aug, beta=10.0) / (pts_norm2 + 1e-8)).mean()) / (2 ** ii)
+
+self-mono-sf initilization:
+
+        if isinstance(layer, nn.Conv2d):
+            nn.init.kaiming_normal_(layer.weight)
+            if layer.bias is not None:
+                nn.init.constant_(layer.bias, 0)
+
+        elif isinstance(layer, nn.ConvTranspose2d):
+            nn.init.kaiming_normal_(layer.weight)
+            if layer.bias is not None:
+                nn.init.constant_(layer.bias, 0)
+
+sf shapes / loss-weights:
+torch.Size([1, 1, 256, 832])
+4.0
+torch.Size([1, 1, 128, 416])
+2.0
+torch.Size([1, 1, 64, 208])
+1.0
+torch.Size([1, 1, 32, 104])
+1.0
+torch.Size([1, 1, 16, 52])
+1.0
+def configure_data_loaders(args)
+
+for train images add train_val: 30127 imgpairs
+fp_imgs_filenames=os.path.join(
+    'kitti_raw_meta', 'lists_imgpair_filenames', 'raw_train_val_monosf_kittisplit.txt'),
+
+
+next:
+    - add learning rate scheduler
+    - add to options: feature pyramid channels
+    - tryout batchsize(if promising for sflow-mono-sf)
+    - possible different mistake
+
+
+next start different configs:
+    leo0: 11_26_v2
+    default
+
+    aisgpu0: 11_26_v1
+    train-res-width: 832  # from 640 -> 832
+    train-res-height: 256  # from 640 -> 256
+
+    aisgpu1: 11_26_v2
+    loss-disp-smooth-lambda: 18  # from 6 -> 18
+
+    aisgpu2: 11_26_v1
+    sflow-use-res-lvl-disp: True  # from False -> True
+
+    leo1: 11_30_v1
+    sflow-feature-pyramid-channels[3, 32, 32, 32, 32, 32] -> [3, 16, 32, 64, 96, 128, 196]
+
+    -> results are quite the same, so it seems that these changes might be quite not relevant
+
+    -> detect that disp_reg loss was part of optimization, so perhaps this is a reason, why optimization slows down?: 0
+
+    -> intrinsics can not be calculated up to 1 dof as depth has 1 dof for a whole image?
+        -> so they are simply using them as optimization parameters and tried to verify why it makes sense
+            -> most likely they aligned depth and thus also aligned scale of intrinsics
+            -> not sure how their distortion model looks like
+
+    next:
+
+    change metric names self-mono-sf
+        -> coach_uflow implement train-res-width/train-res-height
+        -> run uflow again with train-res-width / train-res-height
+
+    - look at their losses to see how they implemented them...
+
+    check
+    2020_12_01_v2:
+        - (sigmoid activation + init) as self-mono-sf
+
+    - turn down sf-rec
+    - different initialization
+    - ssim instead of census loss
+    - loss on various levels
+
+    - no cost volume normalization
+    - no densenet for context network
+
+
+
+note: changed learning rate to 0.0002 (as in self-mono-sf)
+
+next:
+    - add to options: residual disparity
+        -> q: does self-mono-sf use residual dispairty for refinement layer? -> no
+        -> done
+
+sync pearl self-mono-sf
+
+rsync - av - -delete - e ssh sommerl@aislogin.informatik.uni-freiburg.de: ~/master-project/optical-flow/self-mono-sf/checkpoints_logs / /media/driveD/models/self_mono_sf /
+
+next
+    - run on pearl the self-mono-sf
+        -> current state
+        -> once with original size
+
+    - calculate other metrics
+        - next: extend datasets s.t. it returns d2 aswell
+
+        d1 / d2(outlier disparity 1st/2nd frame)
+
+        def compute_d1_all(gt_disps, disp_t, gt_mask):
+            disp_diff=torch.abs(gt_disps[gt_mask] - disp_t[gt_mask])
+            bad_pixels=(disp_diff >= 3) & (
+                (disp_diff / gt_disps[gt_mask]) >= 0.05)
+            d1_all=100.0 * bad_pixels.sum().float() / gt_mask.sum().float()
+
+        # Flow EPE
+        out_flow=self.upsample_flow_as(output_dict['flow_f'][0], gt_flow)
+        valid_epe=_elementwise_epe(out_flow, gt_flow) * gt_flow_mask.float()
+        loss_dict["epe"]=(valid_epe.view(
+            batch_size, -1).sum(1)).mean() / 91875.68
+
+        flow_gt_mag=torch.norm(
+            target_dict["target_flow"], p=2, dim=1, keepdim=True) + 1e-8
+        outlier_epe=(valid_epe > 3).float() * \
+                     ((valid_epe / flow_gt_mag) > 0.05).float() * gt_flow_mask
+        loss_dict["f1"]=(outlier_epe.view(
+            batch_size, -1).sum(1)).mean() / 91875.68
+
+next:
+    - aisgpu6: 10.8.169.46
+        - tmux copy datasets
+        - get git repro
+        - install cuda?
+        - create venv
+        - adjust setup config
+        - try run:
+        CUDA_VISIBLE_DEVICES=0 python3 coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_usceneflow_0.yaml
+            -> works
+
+        - try sync tensorboard
+                rsync - av - -delete - e ssh sommerl@10.8.169.46: ~/models / /media/driveD/models/aisgpu /
+                    -> works
+
+
+
+        - add hparams:
+            tb_log_dir=/ media/driveD/models/sceneflow_models/2020_11_24_v18/tb_log
+            if hparam_dict is not None:
+                # , name='test', global_step=epoch)
+                writer.add_hparams(hparam_dict=hparam_dict,
+                                   metric_dict=metrics)
+            -> does not work
+
+    - tensorboard report config
+        -> ready to test
+            -> done
+
+    - deleting batch-size from options
+
+
+next: architecture comparison
+
+    feature pyramid:
+        self-mono-sf: 7 lvls: [3, 32, 64, 96, 128, 192, 256]
+            -> each lvl 2x conv2d:
+                1) ch_in -> ch_out, kernel_size=3, stride=2  nn.LeakyReLU(0.1, inplace=True)
+                2) ch_out -> ch_out, kernel_size=3, stride=1  nn.LeakyReLU(0.1, inplace=True)
+
+        uflow:  6 lvls: [3, 32, 32, 32, 32, 32]
+            -> each lvl 3x conv2d:
+                1) ch_in  ->  ch_out, kernel_size= 3, stride = 2  nn.LeakyReLU(0.1, inplace=True)
+                2) ch_out ->  ch_out, kernel_size=3, stride=1  nn.LeakyReLU(0.1, inplace= True)
+                3) ch_out -> ch_out, kernel_size=3, stride=1  nn.LeakyReLU(0.1, inplace=True)
+
+        pwc-net: 7 lvls: [3, 16, 32, 64, 96, 128, 196]
+            -> pwc_old: each lvl 2x conv2d(like self-mono-sf)
+            -> pwc_new: each lvl 3x conv2d(like uflow)
+
+
+    context-network
+        self-mono-sf
+            - architecture: no DenseNet
+            - conv2d output channels: [128, 128, 96, 64, 32, ]
+            - conv2d params: kernel size=3, pad=1, leaky_relu_slope=0.1
+            - out_channels: 32
+
+
+        uflow / pwc-net
+            - !! separate context networks for each lvl
+            - architecture: DenseNet
+            - conv2d output channels: [128, 128, 96, 64, 32, ]
+            - conv2d params: kernel size=3, pad=1, leaky_relu_slope=0.1
+            - out_channels lvl: 6)561, 5)595, 4)595, 3)595, 2)595, 1)595
+
+            in channels:
+                lvl 6: 20x20: (81+32)    113 - (+128) -> 241 - (+128) -> 369 - (+96) -> 465 - (+64) -> 529 - (+32) -> 561
+                lvl 5: 40x40: (81+32+32) 147 - (+128) -> 275 - (+128) -> 403 - (+96) -> 499 - (+64) -> 563 - (+32) -> 595
+                lvl 4: 80x80: (81+32+32) 147 - (+128) -> 275 - (+128) -> 403 - (+96) -> 499 - (+64) -> 563 - (+32) -> 595
+                lvl 3: 160x160: (81+32+32) 147 - (+128) -> 275 - (+128) -> 403 - (+96) -> 499 - (+64) -> 563 - (+32) -> 595
+                (lvl 2: 320x320)
+                (lvl 1: 640x640)
+
+    output flow/disp:
+        self-mono-sf:
+            - for each lvl: 7, 6, 5, 4, 3, (2, 1)
+            - self.conv_sf=conv(32, 3, isReLU=False)
+            - self.conv_d1=conv(32, 1, isReLU=False)(sigmoid(x) * 0.3)
+
+        uflow:
+            nn.Conv2d(32 (context_channels), 2,
+                      kernel_size=3, stride=1, padding=1)
+
+        pwc-net:
+            nn.Conv2d(num_context_channels, 2,
+                      kernel_size=3, stride=1, padding=1)
+            -> input channels different from lvl to lvl(561/595)
+
+    upsampling:
+        self-mono-sf:
+            1. interpolate, scale_factore=2., mode='nearest'
+            2. conv2d, ch_in=32, ch_out=32, stride=1, pad=1
+            3. leaky-relu, negative_slope=0.1
+
+        uflow:
+            context: nn.ConvTranspose2d(in =32, out=32, kernel_size=4, stride=2, padding=1) (different for each lvl)
+            flow: nn.functional.interpolate(
+                flow, scale_factor=2, mode='bilinear', align_corners=False) * 2.0
+
+        pwc-net:
+            context: nn.ConvTranspose2d(in = num_out_channels_context, out=2, kernel_size=4, stride=2, padding=1)
+            flow: nn.ConvTranspose2d(in =2, out=2, kernel_size=4, stride=2, padding=1)
+
+
+    flow-net:
+        self-mono-sf:
+            - input: context 32
+            - conv2d output channels
+
+
+next:
+    - run the code with ubuntu 18.04
+    - training dataset hyperparameter multiview, raw-monosf-train, raw-monosf-val, raw-monosf-train-val
+
+next:
+    - add raw-kitti-dataset
+        -> problem with adding last one
+            -> fixed
+        -> return reproj/proj matrices
+            -> where does self-mono-sf takes the camera intrinsics from ?
+
+
+next:
+    - find out value range of disp(depth=0.001.-80., baseline=0.54, rel_fx=0.5809)
+        depth=fx * 0.54 / (disp + 1e-8)
+        depth=torch.clamp(depth, 1e-3, 80)
+
+        disp=(rel_disp * W) | fx=(rel_fx * W)
+        depth=rel_fx * 0.54 / (rel_disp + 1e-8)
+
+         rel_disp=1. / (depth / (rel_fx * 0.54)) - 1e-8
+           333.33=1. / (0.001 / (0.5809 * 0.54)) - 1e-8
+            0.004=1. / (80. / (0.5809 * 0.54))1 - 1e-8
+
+
+    range disp-down-avg(160x160): 3
+    range sflow-down-abs-avg: 0.2
+
+- enable to run the code on pearl
+    - move intriniscs
+
+next:
+    for conv2d / convTranspose2d layers: nn.init.kaiming_normal_(layer.weight)
+
+    add depth validation loss for self-mono-sf
+        -> problems with val dataloader
+
+    look at validation/training loader of self-mono-sf
+
+    uflow train with leftpairs, stereopairs
+        -> check if it is working
+            -> is running
+
+    check that projection / reprojection scale is fine
+        -> specifically cloning proj/reproj_mats now
+
+    try without sigmoid and with residual
+
+    read images
+        ssh - Y user@server
+        eog pictures/foo.png
+        -> requires reporting images
+
+    report all losses
+        -> done
+
+experiments self-mono-sf:
+    - report all losses for self-mono-sf(disp-photo, disp-smooth, sf-photo, sf-smooth, sf-rec)
+    - examine single losses
+
+experiments our-self-mono-sf:
+    - consider residual disparity even though they do not propose that in the paper?
+
+    - perhaps they are using more images? (also read monodepth2)
+
+    - losses applied on multiple lvls?
+
+    - try to not calc gradient for disparity in scenflow-losses(photometric, reconstruction)
+
+
+next:
+    - look if new neighbors_to_channels implementation is faster in training as well
+        -> now 16 mins instead of 14 mins(seems to have even worsen the performance
+next:
+    - optical flow != 0 even if sflow=0, how is that possible ?
+        -> cloning proj_mats/reproj_mats in model required to not change
+        -> perhaps this is also problematic inside usceneflow, when proj_mats is rescaled
+
+next
+    - try with sigmoid, without residual, without dropout
+            -> dropout for dispairty lead to nan(probably in combination with residual disparity)
+
+    - fasten up neighbors to channels
+
+    - why is optical flow positive even though scenen flow is purely negative in x ?
+        -> clone for visualization
+
+    - try with smaller init weights * 1e-01
+        -> didint help
+
+    - check sflow values at start:
+        -> sflow: 1e-06 (definitly almost zero)
+        -> disp: 24. -> depth 2.0914 (for all)
+
+    - how does refinement disp work in self-mono-sf, do they simply add an output channel or adding the whole module again?
+        -> simply adding another conv layer output
+
+    - add arrow implementation for optical flow
+        -> done
+
+adapt warping for slow + disp
+
+next:
+    - check ssim
+        -> done: implemented dssim(3x3) in helpers
+    - rename variables in coach_usceneflow for clarification
+        -> done
+    - rename config_coach_0 -> config_coach_uflow
+        -> done
+    - rename config_coach_1 -> config_coach_usceneflow
+        -> done
+
+    - check pt reconstruction loss
+        - normalized reconstruciton loss ? (do they write something about that in the paper?)
+
+    - check smoothness sf loss:
+        - normalized smoothness loss ? (do they write something about that in the paper?)
+
+    - implement num_workers for ubuntu
+        -> done
+
+    - fasten up for loops()
+
+problem with uscenflow: sceneflow is similar to optical flow in x/y direction if though it should be zero in theory(most of the times)
+
+goal: take optical flow: calc masks, calc transformation/receive transformation
+        -> try to resemble optical flow, by depth+transformation with masks
+
+setup python on pearl1
+
+python3 - m pip install virtualenv
+python3 - m virtualenv venv
+source venv/bin/activate
+pip install torch
+pip install torchvision
+pip install opencv-python
+pip install tensorboardX
+pip install configargparse
+pip install matplotlib
+pip install pptk
+pip install kornia
+pip install scikit-image
+
+cuda 10.1:
+pip install torch == 1.6.0+cu101 torchvision == 0.7.0+cu101 - f https: // download.pytorch.org/whl/torch_stable.html
+
+not required hopefully:
+pip install tensorflow
+pip install scikit-image
+pip install png
+
+python coach_usceneflow.py - s config/config_setup_0.yaml - c config/config_coach_usceneflow_0.yaml
+
+torchvision \
+torch \
+tensorflow \
+tensorboard \
+datetime \
+numpy \
+ConfigArgParse\
+tensorboardX\
+cv2
+(  # ==0.3.2)
+
+next:
+    save depth picture sin eval_depth dir
+
+gt_disp:
+    375x1242: | . | 0-64.0859
+    640x640: | . | 0-33.0233
+    160x160: | . | 0 - 8.2558
+    smooth-lambda=2*3=6
+
+gt_flow:
+    375x1242: | . | 0-188.3750
+    640x640: | . | 0-104.1600
+    160x160: | . | 0 - 26.0400
+    smooth-lambda=2
+
+sflow: | . | 0 - 1.0000 -> factor 26 com
+    smooth-lambda=2*26=52
+
+pytorch-uflow
+noc: (38) -> 25 -> 20 -> 16
+occ: (48) -> 35 -> 31 -> 27
+
+< CUDA > /home/sommerl/cudas/cuda-11.1
+< CUDNN > /home/sommerl/cudnns/cudnn8
+< CUDASAMPLES > /home/sommerl/cudasamples/cuda11samples
+
+install cuda locally:
+wget https: // developer.download.nvidia.com/compute/cuda/11.1.1/local_installers/cuda_11.1.1_455.32.00_linux.run
+sh cuda_11.1.1_455.32.00_linux.run
+    continue driver installation
+    accept the EULA,
+    deselect driver installation
+    options:
+        toolkit options:
+            - disable create symbolic link
+            - change toolkit install path to < CUDA >
+
+    < CUDA > location under your home directory to install the toolkit and a
+    < CUDASAMPLES > for the samples
+
+
+wget https: // developer.nvidia.com/compute/machine-learning/cudnn/secure/8.0.4/11.1_20200923/Ubuntu18_04-x64/libcudnn8_8.0.4.30-1+cuda11.1_amd64.deb
+tar - xzvf (into < CUDNN >)
+
+
+copy from cudnn to cuda
+    cp - P < CUDNN > /cuda/include/cudnn.h < CUDA > /include /
+    cp - P < CUDNN > /cuda/lib64/libcudnn * <CUDA > /lib64
+    chmod a+r < CUDA > /include/cudnn.h < CUDA > /lib64/libcudnn *
+
+add environment variables in ~/.bashrc
+    export PATH= < CUDA > /bin: $PATH
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH: < CUDA > /lib64 /
+
+
+pyturch-usflow
+
+
+next:
+    implement depth eval metrics: sq_rel, abs_rel
+        -> done
+    implement data loading corresponding to projection/reprojection_mats for training
+        -> fx * sx, cx * sx, fy * sy, cy * sy(sx=target_width / orig_width, sy=target_height / height)
+
+
+q: is self-mono-sf using disparity from different levels or just the last level?
+
+q: with wich resolution does self-mono-sf perform smoothing?
+
+q: is sigmoid * 0.3 on disp performed before forwarding to next level?
+    -> yes
+
+q: sigmoid is always positive, so it cannot equal flow?
+    -> for left image flow is always negative -> simply use negative disparity
+
+next:
+    - evaluate self-mono-sf
+        sommerl@aislogin.informatik.uni-freiburg.de
+        convert png to jpg:
+        find . / -name '*.png' | parallel 'convert -quality 92 -sampling-factor 2x2,1x1,1x1 {.}.png {.}.jpg && rm {}'
+        scp - r data_scene_flow sommerl@aislogin.informatik.uni-freiburg.de: ~/master-project/datasets/KITTI_flow
+
+    - architecture
+        - add 3rd channel for scene-flow(context -> scene-flow)
+        - add 1 one channel for disparity output(context -> disp)
+            (maybe also add sigmoid, but sigmoid makes only sense if disparity is relative ?)
+
+
+    - implement disparity loss:
+        warp based on disparity instead of flow
+        occlusion mask based on forward backward disparity?
+
+
+lowest pytorch-uflow(after 622 epochs, first 183 epoch without selfsup)
+    - occ: 3.06 (max 3.7)
+    - noc: 2.12 (max 2.5)
+
+lowest tf-uflow(after 1000 epochs, first 500 epochs without selfsup)
+    - occ: 3.01 (max 3.6)
+    - noc: 2.08 (max 2.4)
+    note:
+    - includes photo augmentation(random channel swapping, random hue delta)
+    - does not uses dropout for selfsup loss
+    - trained for more epochs
+
+tf uflow: after
+500 epochs: in range[6.0 7.8]
+after 1000 epochs: [3.1 3.5]
+-> takes 30 epochs to get close to converge[3.4 3.8]
+
+dataset KITTI raw
+    - day(e.g. "2011_09_26")
+        - intrinsics
+        - sequence(e.g. "2011_09_26_drive_0001_sync")
+            - image_00(0 - 107)
+            - image_01(0 - 107)
+            - image_02(0 - 107)
+            - image_03(0 - 107)
+            - velodyne-points(0-107)
+q: is this the same as annotated depth dataset from 2017 ?
+
+
+speed up uflow dataloader:
+    num_workers > 0 not possible in windows(try ubuntu)
+    prefetch_factor unknown keyword
+
+help iman with uflow_main execution
+
+
+next mono-self-sf
+    - read tensorboard somehow
+        tensorboard - -logdir checkpoints_logs
+        ssh - L 6007: localhost: 6007 sommerl@aislogin.informatik.uni-freiburg.de
+        ssh - L 6007: localhost: 6007 pearl5
+
+
+    - added checkpoints to train/eval scripts
+        -> done
+
+next uflow
+    - continue training of v1 over night(RESET DROPOUT!!)
+        -> doing 175 epoch
+    - v4 try with dropout=0.0
+        -> didint change anything
+    - compare calc fb consistency with random input
+        -> done, no surprises
+    - compare charbonnier loss with random input
+        -> done, no surprises
+    - perform cropping and resizing inside calc_selfsup_loss and after fb_consisting was calculated
+        -> done
+    - train 2020_10_26_v5
+    - add automatically selfsup after 200 epochs
+
+
+key changes for selfsup - loss
+    - at lvl 2: 160x160(output resolutoin of uflow model if 640x640 is input resolution)
+        -> d one
+    - added mask_flow_inside flow for forward-backward consistency
+        -> done
+    - charbonnier loss divides by whole size not just by the sum of weights
+        torch.sum((((x1 - x2) ** 2 + 0.001 ** 2) ** 0.5) * weights) / \
+                  (weights.size(0) * weights.size(2) * weights.size(3) + 1e-16)
+        -> done
+    - selfsup loss only on forward imgpair in tf-uflow?
+        -> done, dont think so(no reason that it would be different pairs than for other losses)
+    - using teacher flow-inside masks from original flow_up(640x640) to include possibility that flow is out of cropped image but inside whole image
+        -> done
+
+possible problems for selfsup loss
+    - we use training mode also for teacher(this is a difference we still have)
+    - interpolating(align_corners=True vs align_corners=False could be decisive) -
+    - tf-uflow ramps up every iteration(0-100k) we ramp up every epoch(0-100)
+    - tf-uflow for teacher: uses 160x160 flow to calculate fb_consistency and then crops resizes afterwards
+            we use crop & resize first to calculate fb_consistency
+
+
+
+python3 - m pip install pip - -upgrade
+python3 - m pip install virtualenv
+
+python3 - m virtualenv venv
+
+virtualenv - p python3 venv
+
+pip install pip - -upgrade
+pip install torch == 1.2.0
+pip install tensorboard
+pip install pypng == 0.0.18
+
+chmod + x install_modules.sh
+./install_modules.sh
+
+pip install colorama
+pip install torchvision
+
+pip install scikit-image
+pip install pytz
+pip install tqdm
+(pytorch == 1.2.0 torchvision == 0.4.0)
+
+(might be more packages required see requirements_pip.txt(but some must still be commented)
+
+cd scripts
+./train_monosf_selfsup_kitti_raw.sh
+
+tf uflow selfsup-loss:
+0.00067 (in 100 epochs) -> 0.04 ( in 250 epochs) -> 0.03
+
+
+
+pip install kornia == 0.3.2
+(try everything from 0.4.1, 0.4.0 0.3.2 0.3.1 0.3.0 to find accurate for pytorch version)
+
+mono-sf-architectuer
+
+n contrast, we observe that residualupdates hurt disparity estimation, hence we estimate(non-residual) disparity at all levels. T
+o have more discriminatefeatures, we increase the number of feature channels in thepyramidal feature extractor from[16, 32, 64, 96, 128, 196]to[32, 64, 96, 128, 192, 256].
+
+    -> thus they have one more level in their feature pyramid, which is 256 x 10 x 10
+
+        sf-scene-flow data augmentation:
+
+        weprepare a simple data augmentation scheme, consisting ofrandom scales, cropping, resizing, and horizontal image flipping.
+        Upon the augmentation, we also explore the recentCAM-Convs[9], which facilitate depth estimation irrespec-tive of the camera intrinsics
+
+
+        As we can see, geometric augmen-tations deteriorate the depth accuracy,
+        since they prevent thenetwork from learning a specific camera prior by inputtingaugmented images with diverse camera intrinsics;
+        this ob-servation holds with and without CAM-Convs
+        -> multiple task use only minimal augmentation schemes such as image flip-ping and input temporal-order switching
+        -> cam-convs is only useful if the test dataset consists of images with different intrinsics -> then it can handle those
+        -> using aug-mentation improves the scene flow accuracy in general, butusing CAM-Convs[9] actually hurts the accuracy.
+
+        Data augmentation.We adopt photometric augmentationswith random gamma, brightness, and color changes.
+        As dis-cussed in Sec.3.5, we use geometric augmentations consist-ing of horizontal flips[26, 27, 28, 53], random scales,
+         ran-dom cropping[5, 40, 64], and then resizing into256×832pixels as in previous work[27, 28, 30, 40, 60].
+
+         At testing time, we onlyresize the input image to256×832pixels without photo-metric augmentation
+
+        sf-scene-flow optimizer:
+
+        Our network is trained usingAdam[25] with hyper-parametersβ1=0.9andβ2=0.999.Our initial learning rate is 2×10−4, and the mini-batch sizeis4.
+        We train our network for a total of 400k iterations.2In every iteration, the regularization weightλsfin Eq. (1) is dynamically determined to make the loss
+        of the scene flowand disparity be equal in order to balance the optimizationof the two joint tasks[21].
+
+        learning-rate schedule: 2 * 10e-04 (0k-150k) 1 * 10e-04 (150k-250k) 0.5 * 10e-04 (250k-300k) 0.25 * 10e-04 (300k-350k) 0.125 * 10e-04
+
+
+    sf-scene-flow: how can they get the intrinsics after geometric augmentation(intriniscs are important to use depth to project from 2D to 3D)
+        -> take original intrinsics and transform them with geometric augmentation
+        note: geometric augmentation only slight improvements(not critical at the beginning)
+
+    find_valid transformations:
+        -> redo transforms until all corner points lie inside the original image(s.t. interpolation is possible)
+
+
+check if warping on low resolution works as good as warping on high resolution
+
+
+check if uflow-model has some structural difference
+
+
+check if copying feature_pyramid_im2 from im1_feature_pyramid helps(maybe stabilises estimation)
+    -> starting smoothness loss still same high (> 0.2)
+
+check if calculating smoothness loss for each sample of the batch separately changes something
+    -> checked, didnt help
+
+check if forward backward imgpairs are fine
+    -> checked
+
+check rgb - dataloading
+    -> checked
+
+check if without smoothness loss and without occlusion mask first epoch comes closer to tf-uflow
+    -> no it doesnt
+
+does tf-uflow use imgpairs that are not direcetly subsequent imgs?
+    _ > yes checked
+
+NOTE: improvements might be due
+    - and/or to forward and backward mask
+    - and/or to photo augmentation
+
+speed enhancement
+    -> occlusion mask
+    -> cost volume
+    -> photo augmentation
+
+ensure dataloader of torch-uflow works as dataloader tf-uflow
+    (all samples are used, at least in first epoch 1000 different)
+
+check smoothness loss:
+    examine uflow model from top-to-bottom:
+    pytorch-uflow:
+        input: BxCxHxW
+
+check smoothness loss:
+    with photo augmentation
+        -> smoothness loss start: 0.023 (still too hight)
+    track img-gradient-aswell(for smoothness loss)
+        -> no suprises
+
+        from:
+        -> 'smooth2-loss': < tf.Tensor: shape=(), dtype=float32, numpy=0.24398085 >, 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape=(), dtype=float32, numpy=0.098651126 > ,
+        (0.1431572
+        to:
+        -> 'smooth2-loss': < tf.Tensor: shape=(), dtype=float32, numpy=0.010920019 > , 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape=(), dtype=float32, numpy=0.12894702 >
+        (0.13823827
+
+        avg:
+            train - adding summary: smooth2-loss tf.Tensor(0.0074224207, shape=(), dtype=float32) 0
+            train - adding summary: flow-lvl2-abs-avg-loss tf.Tensor(0.13645631, shape=(), dtype=float32) 0
+
+        torch-uflow:
+            smoothness_loss tensor(0.2316, device='cuda:0', grad_fn= < MulBackward0 >)  flow-lvl2-abs-avg tensor(0.1497, device='cuda:0')
+            smoothness_loss tensor(0.0246, device='cuda:0', grad_fn= < MulBackward0 >)  flow-lvl2-abs-avg tensor(0.2258, device='cuda:0')
+            avg: image_grad_x + image_grad_y= 0.15
+
+findings:
+    - occlusion mask for forward and backward flow
+    - dataset ensures every sample is read
+    - photo augmentation
+    -> none of these change smoothness loss in the first epoch
+
+check number of occlusion maps of(wang):
+
+dataset - tf
+    -> ensures every sample is used
+
+change batch size for update
+    -> does not improve
+
+check if different seed= 43 (instead of 41) for tf-uflow for generating the dataset makes a diffference to smooth loss:
+    -> still the same
+    train - adding summary: smooth2-loss tf.Tensor(0.008497455, shape=(), dtype=float32) 0
+    train - adding summary: flow-lvl2-abs-avg-loss tf.Tensor(0.29589185, shape=(), dtype=float32)
+
+checked if all weights are changing
+    -> only weights/bias not changing is context_up_sampling_module[3] -> last up_context/up_flow is not used anyway
+
+check img values for original tf version
+    -> looks fine for images(could not check at point of smoothness calculation, but should not change)
+
+photo-aug
+    -> does not significantly reduce smoothness loss
+
+init params * 0.5
+    -> did only slightly reduce(2.3 -> 2.0) smoothness loss
+        -> does not seem to be important
+
+checking resizing of images, looks fine
+-> same result with align_corners= False
+
+            img1s_down= torch.nn.functional.interpolate(img1s, scale_factor=1.0 / 2.0, mode='bilinear',
+                                                         align_corners=True)
+            img1s_down= torch.nn.functional.interpolate(img1s_down, scale_factor=1.0 / 2.0, mode='bilinear',
+                                                         align_corners=True)
+
+            import uflow_helpers
+            import tensorflow as tf
+            def torch_to_tf(x, device='cpu'):
+                x= tf.convert_to_tensor(x.permute(0, 2, 3, 1).cpu().detach().numpy())
+                return x
+
+            def tf_to_torch(x, dev=None):
+                x= torch.from_numpy(x.numpy()).permute(0, 3, 1, 2)
+                if dev is not None:
+                    x= x.to(device=dev)
+
+                return x
+
+            img1s_tf= torch_to_tf(img1s)
+            img1s_down_tf= uflow_helpers.resize(img1s_tf, 160, 160, is_flow=False)
+            img1s_down= tf_to_torch(img1s_down_tf)
+
+
+            edge_weight= 150
+            order= 2
+            img1_grad_x, img1_grad_y= helpers.calc_batch_gradients(img1s_down, margin=order-1)
+            img1_grad_x= torch.abs(img1_grad_x)
+            weight_x= torch.exp(-edge_weight * torch.mean(img1_grad_x, dim=1, keepdim=True))
+            print(torch.mean(weight_x))
+
+
+
+## TODO ##
+
+
+
+next: check if shorter sequence length improves result
+
+next: check without occlusion mask first two epochs:
+
+
+tf-uflow eval uses 640x640 input images and rescales them right?
+
+
+check input data shuffling:
+import tensorflow as tf
+dataset= tf.data.Dataset.range(1, 6)
+dataset= dataset.shuffle(6, reshuffle_each_iteration=True)
+dataset= dataset.repeat()
+it= tf.compat.v1.data.make_one_shot_iterator(dataset)
+
+for i, b in enumerate(it):
+    print(i, b)
+    if i > 10:
+        break
+
+    -> shuffle each work
+
+check dropout
+    -> works as expected(note: actually calling model.eval() should automatically turn off dropout layers)
+    -> dropout= 0.1 in tensorflow, yes
+
+check pytorch/tensorflow adam implementation:
+
+    -> checked, looks good
+
+
+check how flow-abs-avg evolves without smoothness loss in torch-uflow
+
+check gradients of optimizer.backward():
+
+check flow-lvl2-abs-avg development from scratch in tf-uflow:
+    ->
+
+check no zeroing of flow-value in tf-uflow
+    -> checked
+
+
+findings - learning rate:
+    - 0.00005: even slightly higher smoothness loss
+    - 0.001: diverges
+
+check if smoothness loss alone does something:
+    -> yes it does
+
+
+check if requires_grad is true in warp:
+    -> yes it does
+
+
+
+finding - first epoch:
+
+ tf-uflow:
+    from: 'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.18338315 > , 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 2.5852149 > ,
+
+    to: 'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.009953644 >, 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.16665277 >
+
+    avg:  flow-lvl2-abs-avg-loss: 0.761795, learning-rate: 0.000100, smooth2-loss: 0.008339, train-time: 284.913727
+
+ tf-uflow:
+    from:  'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.2544567 >, 'flow-lvl0-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 25.965601 >
+
+    to:  'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.0041711195 >, 'flow-lvl0-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.104866534 >
+
+    avg:  0 - - total-loss: 3.739969, census-loss: 3.330983, data-time: 4.882514, flow-lvl0-abs-avg-loss: 0.398538, learning-rate: 0.000100, smooth2-loss: 0.010449, train-time: 286.067383
+
+ torch-uflow:
+     from: smoothness_loss tensor(0.3012, device='cuda:0', grad_fn= < MulBackward0 > )  flow-lvl0-abs-avg tensor(32.6275, device='cuda:0', grad_fn= < MeanBackward0 > )
+
+     to: smoothness_loss tensor(0.0394, device='cuda:0', grad_fn= < MulBackward0 > )   flow-lvl0-abs-avg tensor(2.9330, device='cuda:0', grad_fn= < MeanBackward0 > )
+
+     avg:
+
+  ground truth: flow-avg 3.902843257188797 (note: resolution=~1242x375)
+
+  tf-uflow:
+    from: 'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.2704881 > , 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 9.938218 > ,
+
+    to: 'smooth2-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.0035093704 >, 'flow-lvl2-abs-avg-loss': < tf.Tensor: shape = (), dtype = float32, numpy = 0.02973606 >
+
+  torch-uflow: (optimizer.eps=1e-07: same result, sgd: same)
+    form: smoothness_loss tensor(0.2207, device='cuda:0', grad_fn= < MulBackward0 > ) flow-lvl2-abs-avg tensor(3.0424-5.5932, device='cuda:0', grad_fn= < MeanBackward0 > )
+    to: smoothness_loss tensor(0.0341, device='cuda:0', grad_fn= < MulBackward0 > ) flow-lvl2-abs-avg tensor(0.6739, device='cuda:0', grad_fn= < MeanBackward0 > )
+
+   torch-uflow:
+    from: smoothness_loss tensor(0.6721, device='cuda:0', grad_fn= < MulBackward0 > )  flow-lvl2-abs-avg tensor(5.5932, device='cuda:0', grad_fn= < MeanBackward0 > )
+    to: smoothness_loss tensor(0.0377, device='cuda:0', grad_fn= < MulBackward0 > )  flow-lvl2-abs-avg tensor(0.6509, device='cuda:0', grad_fn= < MeanBackward0 > )
+
+  tf-uflow-1000:
+    flow-lvl2-abs-avg-loss: 0.220869, selfsup-loss: 0.004301, smooth2-loss: 0.009453
+
+  torch-uflow-113-epoch:
+    flow-lvl2-abs-avg-loss: ~2.20869,
+
+finding:
+    no occlusion mask in first epoch for brox/wang mask
+    flows.keys()
+    dict_keys([(0, 1, 'original-teacher'), (0, 1, 'augmented-student'), (0, 1, 'transformed-student'),
+              (1, 0, 'original-teacher'), (1, 0, 'augmented-student'), (1, 0, 'transformed-student')])
+
+next:
+    - check variance of init weights/biases
+
+    bias-means [ < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > ]
+    bias-means-avg tf.Tensor(0.0, shape=(), dtype=float32)
+    bias-vars [ < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0 > ]
+    bias-vars-avg tf.Tensor(0.0, shape=(), dtype=float32)
+    weights-means [ < tf.Tensor: shape = (), dtype = float32, numpy = -0.0038692462 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00048666808 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0016947618 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0005355409 > , < tf.Tensor: shape = (), dtype = float32, numpy = -5.1653064e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00051788474 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.0006503004 > , < tf.Tensor: shape = (), dtype = float32, numpy = -5.057208e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0008455841 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0007207315 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.000178528 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00095759705 > , < tf.Tensor: shape = (), dtype = float32, numpy = 6.277575e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0004642134 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.0021511465 > , < tf.Tensor: shape = (), dtype = float32, numpy = 5.3604683e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -1.1690123e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 8.742998e-06 > , < tf.Tensor: shape = (), dtype = float32, numpy = 1.9714902e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00031491785 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00022724488 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.0024570925 > , < tf.Tensor: shape = (), dtype = float32, numpy = -1.2715824e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 4.7475853e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 3.3611163e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 1.949203e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 6.16706e-06 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00048009824 > , < tf.Tensor: shape = (), dtype = float32, numpy = 2.6261649e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -2.0323583e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 1.493027e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -6.4359347e-07 > , < tf.Tensor: shape = (), dtype = float32, numpy = 2.8570534e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0019876817 > , < tf.Tensor: shape = (), dtype = float32, numpy = 6.702269e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 1.9587498e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -2.7596934e-07 > , < tf.Tensor: shape = (), dtype = float32, numpy = 3.0228473e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -2.6877004e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00071088923 > , < tf.Tensor: shape = (), dtype = float32, numpy = -6.8542795e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -7.910041e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 3.36479e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 6.3568266e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = -2.8640645e-05 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.003046316 > , < tf.Tensor: shape = (), dtype = float32, numpy = -1.4726102e-06 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00056952744 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00022210386 > , < tf.Tensor: shape = (), dtype = float32, numpy = -0.00030176013 > ]
+    weights-means-avg tf.Tensor(-1.1323793e-05, shape=(), dtype=float32)
+    weights-vars [ < tf.Tensor: shape = (), dtype = float32, numpy = 0.00621954 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034273136 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034719603 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0035345613 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034555914 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.003484686 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034230698 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034907265 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034904156 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.003437361 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.003521658 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034430712 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034795222 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0035052167 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0034837797 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.001371772 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0008624454 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0008685411 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.000991903 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0013947191 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0023299733 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0064199213 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0008095311 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0005502725 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00044447609 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00039379604 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0003742019 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0065275077 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.000806339 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0005518119 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00044564102 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00039563436 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00037241014 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0062157726 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00080764067 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.000552105 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00044430452 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0003943382 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00037393524 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.006374403 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00092039735 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0006010252 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00047820233 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00042082608 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.00039782416 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0062157684 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0019480361 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0019550333 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0019557087 > , < tf.Tensor: shape = (), dtype = float32, numpy = 0.0019591707 > ]
+    weights-vars-avg tf.Tensor(0.0022558772, shape=(), dtype=float32)
+
+    bias-means [tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 >), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > )]
+    bias-means-avg tensor(0.)
+    bias-vars [tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 >), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > ), tensor(0., grad_fn= < VarMeanBackward1 > )]
+    bias-vars-avg tensor(0.)
+    weights-means [tensor(0.0002, device='cuda:0', grad_fn= < VarMeanBackward1 >), tensor(0.0011, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0012, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-2.5192e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0001, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(6.0142e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(1.9665e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0003, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0003, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0005, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(5.6920e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0009, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0003, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0005, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-3.5770e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(8.7291e-06, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(6.6334e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(3.7266e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(2.2056e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(1.6893e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-2.3035e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-6.5351e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(7.7169e-06, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(2.3769e-06, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0001, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-2.8884e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-1.8552e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(2.0260e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-6.7018e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-5.7177e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0002, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-3.6531e-06, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(4.5345e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-3.1425e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0024, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0029, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0037, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-2.1148e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0001, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(-0.0003, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(2.2014e-05, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0002, grad_fn= < VarMeanBackward1 > ), tensor(3.3151e-05, grad_fn= < VarMeanBackward1 > ), tensor(-2.0846e-05, grad_fn= < VarMeanBackward1 > ), tensor(0.0001, grad_fn= < VarMeanBackward1 > ), tensor(6.0656e-05, grad_fn= < VarMeanBackward1 > ), tensor(0.0003, grad_fn= < VarMeanBackward1 > ), tensor(-0.0007, grad_fn= < VarMeanBackward1 > )]
+    weights-means-avg tensor(-7.3498e-05)
+    weights-vars [tensor(0.0065, device='cuda:0', grad_fn= < VarMeanBackward1 >), tensor(0.0034, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0034, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0034, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0034, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0035, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0009, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0005, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0008, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0008, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0008, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0006, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0004, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0068, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0063, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0065, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0063, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0020, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0020, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0020, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0019, device='cuda:0', grad_fn= < VarMeanBackward1 > ), tensor(0.0014, grad_fn= < VarMeanBackward1 > ), tensor(0.0009, grad_fn= < VarMeanBackward1 > ), tensor(0.0009, grad_fn= < VarMeanBackward1 > ), tensor(0.0010, grad_fn= < VarMeanBackward1 > ), tensor(0.0014, grad_fn= < VarMeanBackward1 > ), tensor(0.0023, grad_fn= < VarMeanBackward1 > ), tensor(0.0062, grad_fn= < VarMeanBackward1 > )]
+    weights-vars-avg tensor(0.0023)
+
+    bias-means-avg tf.Tensor(0.0, shape=(), dtype=float32)
+    bias-vars-avg tf.Tensor(0.0, shape=(), dtype=float32)
+    weights-means-avg tf.Tensor(-1.1323793e-05, shape=(), dtype=float32)
+    weights-vars-avg tf.Tensor(0.0022558772, shape=(), dtype=float32)
+
+    bias-means-avg tensor(0.)
+    bias-vars-avg tensor(0.)
+    weights-means-avg tensor(-7.3498e-05)
+    weights-vars-avg tensor(0.0023)
+
+    - check if augmented/non-augmented works as expected for tf-uflow and torch-uflow
+
+    - check occlusion mask again
+# 2020_10_15_v1
+
+WSL SUBSYSTEM CHANGE SIZE:
+ commands powershell:
+    wsl.exe - -list - -verbose
+    wsl - -shutdown
+    wsl.exe - -terminate
+
+    cd % LOCALAPPDATA %\Packages
+    Get-AppxPackage - Name "*Ubuntu*" | Select PackageFamilyName
+        -> CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc
+
+    virtual disk: % LOCALAPPDATA %\Packages\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc\LocalState\ext4.vhdx
+
+
+    select vdisk file= "%LOCALAPPDATA%\Packages\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc\LocalState\ext4.vhdx"
+    select vdisk file= "C:\Users\Leonh\AppData\Local\Packages\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc\LocalState\ext4.vhdx"
+    expand vdisk maximum= "<sizeInMegaBytes>"
+    compact vdisk
+    list disk
+
+ ubuntu commands:
+    # mounts device:none of type:devtmpfs to dir:/dev
+    sudo mount - t devtmpfs none / dev
+    mount | grep ext4
+    sudo apt install resize2fs
+    sudo resize2fs / dev/xxx
+
+
+
+in ubuntu:
+% LOCALAPPDATA %\Packages\CanonicalGroupLimited.Ubuntu18.04onWindows_79rhkp1fndgsc
+
+next:
+    - check if augmented/non-augmented works as expected for tf-uflow and torch-uflow
+
+photo aug training:
+    - for flow calculation use augmented images
+
+    - for self-supervised flow use non-augmented images
+        note: for self-supervised flow switch model to training= False
+        note: might be possible that it is taken on 2nd lvl?
+
+    - for loss calculation use non-augmented images
+
+differences in dataset:
+    training dataset: Kitti-flow-multiview-testing:
+        resize images to: 384x1280
+        not entire sequence, but only frames: 0-8, 13-20 (8 + 7=15 imgpairs)
+
+        why is num_files for training set= 396? 200 "0-8" + 200 x "13-20" = 400?
+
+        their datashuffling might be different?
+
+              ds= ds.shuffle(num_files)
+    # Create a nested dataset.
+    ds= ds.map(tf.data.TFRecordDataset)
+    # Parse each element of the subsequences and unbatch the result.
+    # pylint:disable=g-long-lambda
+    ds= ds.map(lambda x: x.map(
+        lambda y: parse_data(y, height, width),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE).unbatch())
+    # Slide a window over each dataset, combine either by interleaving or by
+    # sequencing the result (produces a a nested dataset)
+    window_fn=lambda x: x.window(size=seq_len, shift=1, drop_remainder=True)
+    # Interleave subsequences (too long cycle length causes memory issues).
+    ds=ds.interleave(
+        window_fn,
+        cycle_length=1 if 'video' in mode else min(10, num_files),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    if shuffle_buffer_size:
+      # Shuffle subsequences.
+      ds=ds.shuffle(buffer_size=shuffle_buffer_size)
+
+    # Put repeat after shuffle.
+    ds=ds.repeat()
+    # Flatten the nested dataset into a batched dataset.
+    ds=ds.flat_map(lambda x: x.batch(seq_len))
+    # Prefetch a number of batches because reading new ones can take much longer
+    # when they are from new files.
+    ds=ds.prefetch(10)
+
+next:
+    - fitting ground plane into camera system. pixel on ground plane have constant depth, as long
+    fit planes,
+    search planes with normals that are orthogonal to the camera movement(2 degrees of freedom)
+        -> pixels on these planes have constant depth
+        -> introduce constancy loss for them
+
+todo:
+    get rid of unnecessary swap between cpu/gpu at dataset
+
+    what is shuffle_size in tensorflow-uflow ?
+
+    what is the eigen/kitti split for self-mono-sf
+
+    kitti-raw-data:
+        - 42, 382 rectified stereo pairs
+        - 61 scenes
+        - typical image size 1242×375 pixels
+
+        Unsupervised Monocular Depth Estimation with Left-Right Consistency(Monodepth1 2017):
+        - kitti split:
+            33 scenes contain 30, 159 images from which we keep(30, 159)(30, 127 + 32=30, 159)
+                training: 29, 000
+                for evaluation: rest 1, 159
+            28 (29 according to self-mono-sf) scenes(testing)(12223)
+                200 high quality disparity images
+        - eigen split
+            29 scenes: 697 images
+            32 scenes: 23, 488 images
+                training: 22, 600
+                for evaluation: rest 1, 488
+
+        Digging into Self-Supervised Monocular Depth Prediction(Monodepth2 2019)
+        - eigen-zhou split:
+            training: 39, 810 monocular triplets
+            validation: 4, 424 for validation
+        -
+
+
+    eigen-split: (Depth map prediction from a single image using a multi-scale deep network 2014)
+        - 56 scenes form city, residential, road categories(of the raw data)
+        - 28 scenes for training, 28 scenes for testing
+        - orig size: 1224x368 -> downsample to half of resoltion for net-input: 612x184
+        - duplicates due to non-movement are removed
+        - right and left cameras are used, but are not associated with each other
+        - training set: 800 images per scene(20K unique images, 40K sampled shuffled after evening scene distribution)
+
+    eigen-zhou-split: (Unsupervised Learning of Depth and Ego-Motion from Video 2017)
+        - training set:
+            - exclude all frames from the testing sequences
+            - exclude frames with mean optical flow magnitude less than 1 pixel
+            - fix frame length to 3 per sequence, central frame target frame, other 2 frames source frames
+         - total of 44, 540 sequences, 40, 109 for trianing and 4, 431 for validation
+        - testing set: 697 images from the eigen-split test set
+
+    kitti-scene-flow-2015-split:
+        calculate egomotion from laser-scans:  GPS/IMU system of the KITTI car + ICP fitting of 3Dpoint clouds
+        -> used to accumulate 7 scans
+        -> remove all 3D points belonging to moving objects using the 3D bounding box annotations provided onthe KITTI website
+        match one from 16 3D  CAD  models from Google  3D  Warehouse
+        -> optimize transformation/rotation with 2D/3D correspondences plus SGM as weak prior
+            (SGM: Stereo processing by semiglobal matchingand mutual information(2007))
+
+        training: 200x2x2=800 (rgb, disp, optical-flow available)
+        testing: 200x2x2=800 (only rgb available)
+
+    kitti-flow-multiview-2015-split:
+        training: 200x21x2=8400 (only rgb)
+        testing: 200x21x2=8400 (only rgb)
+
+    kitti-split: (Sparsity Invariant CNNs 2017)
+        KITTI raw dataset[10], which provides stereo sequences covering 61 street scenes.
+        For the scene flow experiments, we use the
+        KITTI Split[13]: we first exclude 29 scenes contained in KITTI Scene Flow Training[36, 37] and split the remaining
+        32scenes into 25 801 sequences for training and 1684 for vali-dation.
+        For evaluation and the ablation study, we use KITTIScene Flow Training as test set, since it provides ground-truth labels for disparity and scene flow for 200 images.
+
+        remove noise in the laser scans, arti-facts due to occlusions, reflect-ing/transparent  surfaces in the  scene
+            -> enforce consistency on stereo depth maps and 11 accumulated laser scan depth maps
+        93k with depth annotated rgb images
+            -> handle left/right rgb cameras independently
+        training: 85k images
+        validation: 4k images
+        testing: 3k images
+            - for each split: similar distribution over KITTI scene categories(city, road, residential, campus)
+            - for each split: keeping sequence-ids unique to avoid overfitting to nearby frames
+
+
+    Self-Supervised Monocular Scene Flow Estimation(2020)
+
+    Kitti-Split:
+        - testing: 29 (28 according to monodepth) scenes contained in KITTIScene Flow Training(2015/18)
+            -> ground-truth labels for disparity and scene flow for 200 images
+        - training: 32 scenes into 25 801 sequences for training and 1684 for vali-dation.
+
+    Eigen-Split:
+        - testing:  28 scenes: 697 sequences
+        - training: 29 scenes: 20120 training sequences and 1338 validation sequence
+
+    Additionally for evaluating monocular depth accuracy, we also use theEigen Split[8] by excluding, splitting into
+
+does tensorflow use augmentation?
+
+    photometric augmentation per imgpair:
+      if augment_color_swap:
+    r=tf.random.uniform([], maxval=3, dtype=tf.int32)
+    images=tf.roll(images, r, axis=-1)
+    r=tf.equal(tf.random.uniform([], maxval=2, dtype=tf.int32), 1)
+    images=tf.cond(pred=r,
+                     true_fn=lambda: tf.reverse(images, axis=[-1]),
+                     false_fn=lambda: images)
+
+  if augment_hue_shift:
+    images=tf.image.random_hue(images, max_delta_hue=0.5)
+
+
+check if tensorflow calculates different occlusion masks for forward and backward_flow
+
+why is this smoothness loss of a factor of 2 too high?
+    - does tensorflow not take the factor 2 for report ?
+
+    img_gx.shape(1, 158, 160, 3)
+    weights_xx.shape(1, 158, 160, 1)
+    flow_gxx.shape(1, 158, 160, 2)
+    single smoothness: tf.Tensor(0.0044100005, shape=(), dtype=float32)(added ~0.01)
+    for CPU version
+        PYTHONUNBUFFERED=1, CUDA_VISIBLE_DEVICES=0
+
+next:
+    - check if weights differ
+    - check if requires_grad is true for source in warping
+        (should be for pyramid warping)
+        (should not be for warping image)
+
+done:
+    - look at weight init
+        -> xavier weight init for kernels -> variance increase by factor of 3-5
+        -> zero init for b(offset) -> now zero variance
+
+done:
+    - coloring of flow like tensorlfow: done
+        -> note: somehow axis seem to be in opposite direction
+    - check axis for tensorflow loader:
+        -> actually they load it the same way as us, but for plotting they take the negative and swap axes
+
+done:
+    - delted 0.5 offset for warping, i dont believe at it and it is actually bad if the resolution is just 20x20
+    - debug before and after normalization look at variance and norm for torch and tensorflow: mean: 0. var 1. after for both
+    - why is tensorflow stopping grad for source before warping? i mean the source is an image, no grad may be propagated to the params?
+    - tensorlfow: census loss only with warped images based on flow[0](160x160) ? no based on 640x640 just like us
+    - tensorflow: refinement models, simple pass through? yes, checked
+    - look in evaluation because cenus loss does not seem to be so much different? looks very much the same
+        -> actually evaluated on highest resolution ~(375, 1242, 2)
+
+    - flow:
+        u-axis - ->
+        v-axis | |
+               \/
+
+params check:
+    torch:                               5718218
+    tensorflow:       5587850 + 130368=5718218
+
+                    refine_model
+    torch
+    tensorflow            519554
+
+refinement check:
+    [(128, 1), (128, 2), (128, 4), (96, 8), (64, 16), (32, 1)](2, 1)
+    Leaky-Relu until last layer
+    channel, dilation rate
+    pad: 1
+    stride: 1
+
+upconv-layer check:
+
+pyramid-model check:
+    - 3 -> 32 -> 32 -> 32 -> 32 -> 32
+    - 640 -> 320 -> 160 -> 80 -> 40 -> 20
+
+    - kernel size: 3
+    - pad: 1, 1, 1, 1, 1
+    - stride: 2, 1, 1, 1, 1
+    - features-pyramid has only 5 level! [320, 160, 80, 40, 20]
+
+    - num_params: lvl1:   3 x32 x 3x3
+                  lvl2-5: 32x32 x 3x3
+                  total: 37728
+
+flow-layers(per level):
+    - [128, 128, 96, 64, 32, ] 2]
+    - leaky relu until last layer
+    - kernel size=3
+    - pad=1
+
+    in channels:
+        lvl 5: 20x20: 113 -> 241 -> 369 -> 465 -> 529 -> 561
+        lvl 4: 40x40: 147 -> 275 -> 403 -> 499 -> 563 -> 595
+        lvl 3: 80x80: 147 -> 275 -> 403 -> 499 -> 563 -> 595
+        lvl 2: 160x160: 147 -> 275 -> 403 -> 499 -> 563 -> 595
+    checked!
+
+smoothness check:
+    - inside tensorflow implementation
+    - num_pairs=2 (forward, backward), size=160x160
+    - 1xCxHxW calculates same result as our implementation!
+
+check occlusion results
+    -> try with brox mask instead and look if bad results are still their
+
+    fixed number batches=1000 instead of 39xx(len training dataloader)
+    -> s.t. acc_errors are not divided by 39xx but 1000
+
+selfsup loss:
+    params:
+        'selfsup_mask', 'gaussian'
+        'fb_sigma_teacher', 0.003
+        'fb_sigma_student', 0.03
+        'weight_selfsup', 0.6
+        'selfsup_crop_height', 64
+        'selfsup_crop_width', 64
+        'selfsup_after_num_steps', int(5e5)
+        'selfsup_ramp_up_steps', int(1e5)
+        'selfsup_step_cycle', int(1e10)
+
+        implementations:
+            -> detach teacher_flow
+            -> calc loss at 2nd level -> /64
+            -> weight_selfsup=0.6
+
+    - q1: what selfsup transform used?
+    - q2: what selfsup mask used? -> gaussian
+
+next:
+    - get fundamental matrix / essential matrix from 2d correspondences
+    - get 3d transformation from that
+    - self-sup loss
+
+    - check occlusion masks for batches implementation
+
+
+next:
+    - more efficient implementation: BxCxHxW transformations instead of only for CxHxW
+    - 0.5 offset for depth2xyz?
+    - more efficient implementation for warping with 3D sceneflow(no detour with 2d optical flow)
+done:
+    - add projection matrix to dataloader (preloaded) ( in case of disparity)
+    - add pixel2xy in heleprs
+    - add pixel2xyz in helpers
+    - use left and right images for training uflow?
+
+    - delete device / dtype options from helpers
+
+done:
+    - test normalized correlation volume(compare with tf-uflow)
+        - are they(uflow) making sure that not the normalized features are passed on ?
+            -> is not a problem, because python does right hand evaluation before left-hand assignment
+
+    - test census loss(compare with tf-uflow)
+        - 1. check census_transform implementation
+            -> checked
+        - 2. mask bhw3 - different mask for each channel?
+            -> no
+
+- ------------------------------------------------
+
+done:
+    - try warping: arange(0, H) .. instead of arange(1, H+1) or arange(0.5, H+0.5)
+        -> arange(0.5, H+0.5) is exactly the same to tensorflow implementation
+        -> deleted warp function in network.py
+
+
+q1: do we require align_corners=True for grid_sample? (self-mono-sf does that)
+
+q2: do we require kitti-raw dataset as self-mono-sf?
+    might uflow use the whole datset aswell?
+
+
+next:
+    - new repro:
+        a) linking uflow model
+        b) linking monodepth2 model and use optical flow as supervision signal instead of warping? (scene flow projection)
+
+    - add plane for normalization of transformation? (camera pose)
+    - continue training uflow model
+
+done:
+    - found out normalization of imgs from 0, 1 to - 1, 1
+
+next:
+    - make package s.t. uflow_pytorch can be used from different repro and simply icluded
+    - depth pose network simply based on optical flow should be sufficient < -> 9 point algorithm
+        -> how to deal with scale ambiguity? / how does 9 point algorithm deal with it ?
+
+done:
+
+looked into epic-flow(deep matching) -> definitely time consuming to implement
+    deep matching:
+        1. pixel descriptor(gradients rotated)
+        2. bottom-up correlation: 4x4 patch correlation maps,
+        3. top-down backtracking: maximum correlation quadtrees
+        4. interpolation of quasi-dense maps -> dense maps
+        5. variational energy method for low texture/smoothing
+
+
+next:
+- added robust l1 to smootness loss
+- ssim implementation
+- projection and backprojection monodepth2 understanding and implementation
+- delete images from tensorboard because 7 GIGABYTES?!?!
+- continue training -> take config from directory and coach-state-json-dict minimalistic version
+- train models without forward-backward but only forward
+
+- look at monodepth2 paper
+    - optical flow filter out static pairs
+    - uses timepairs and stereopairs
+    - automask stationary pixel(photometric error does not decrease with pose transformation)
+    - posenet + depthnet having separate encoders(pretrained on imagenet helps)
+    - occlusion mask: use only smalles photometric error
+    (only can detect relatively which imgpair shows fewer occlusion for specific pixel)
+    - edge aware deth smootness uses normalized inversed depth(probably normalized over image)
+    - how are they dealing with scale ambiguity? - they are not?
+    - axis/translation multiplication with 0.01 for some reason?
+    - depth: output disp in [0, 1], scale s.t. depth lies in [min_depth, max_depth]
+    - how does projection3D to pixels work, s.t. depth decoder is differentiable?
+        -> F.grid_sample(bilinear interpolation of pixel coords)
+
+    -> straight forward way: use optical flow + feature pyramid to calculate depth
+
+model parameters outsource
+
+report backward flow
+
+
+q1: shall we use 1st order smoothing for testing occlusion masks?
+q2: shall we outsource tensorboardX to clerk?
+q3: shall we add an visualizer?
+q4: shall we add an owner to manage more than one coach / presenter at a time?
+    owner options:
+        - datasets_dir
+        - validation directory
+        - training directory
+
+    coach options:
+        - train_dataset
+        - eval_dataset
+        - models_dir(inherited from owner)
+        - model_tag
+
+        - loss options
+        - optimizer options
+        - training options
+        - evaluation options
+
+    presenter options:
+        - models_dir(inherited from owner)
+        - model_tag
+        - eval_dataset
+
+q5: shall we implement an watershed method to retrieve instance masks from optical flow?
+q6: census/smoothness loss divide by batch size ?
+
+
+1st evalutation
+warning:
+7: 25
+WARNING: root: NaN or Inf found in input tensor.
+
+ais git:
+
+tensorflow uflow
+ - add inference for KITTI and occlusion masks
+
+next:
+    fix testing dataset for training error:
+              File "C:\Users\Leonh\PycharmProjects\optical-flow\venv\lib\site-packages\torch\utils\data\_utils\fetch.py", line 44, in <listcomp >
+            data=[self.dataset[idx] for idx in possibly_batched_index]
+          File "C:\Users\Leonh\PycharmProjects\uflow_pytorch\datasets.py", line 118, in __getitem__
+            img2=self.imgs[img2_id].to(self.device)
+        IndexError: list index out of range
+        957 (testing) vs 952 (training) batches
+
+    forward - backward consistency/occlusion mask requires warping of flow?
+
+    add noc/occ directory to validation dataset/-loader
+    self-sup loss:
+        - robust l1 loss(occlusion weighted charbonnier loss)
+            - low fb-consistency in student and high fb-consistency in teacher
+        - stop gradient for teacher network
+        - resize cropped images
+        - same network for teacher and student
+
+    add occlusion mask to loss
+        - occlusion masks are for training primarily or also for visualization?
+
+    add dropout to training
+
+
+implementation
+    - optimization procedure
+    - correct model(especially the context modules)
+    - losses: census, ssim, supervision loss
+    - occlusion: wang / brox
+        q8: only for photometric loss or also for smoothness loss relevant?
+    - add self-supervised loss
+
+    - soothness loss
+    - decay of learning rate: 10-4 for m steps, followed by 1/5m steps with exponentially decay to 10-8
+        m=50K: batch-size=32, m=1M: batch-size=1
+    - cost vol
+    - add dropout for training
+
+    - OUTPUT IMAGES / OPTICAL FLOW(flownet rgb2flow)
+
+
+q8: forward-backward consistency for valid pixel mask only or using an additional loss?
+p1: adding forward backward mask leads to constant prediction for all pixel, s.t. there is no valid pixel anymore and the census loss gets 0
+    -> possible solution: train forward backward first without mask, and then later if mask is already quite good add mask.
+rethink census_loss and smoothness_loss dimension
+
+q1: census loss: batch size normalization
+q2: apply loss only at last layer?
+q3: apply smoothness loss at 1/4 resolution?
+q4: for occlusion lets take the same pair forward and backward?
+q5: supervised loss resizing?
+q6: cost volume is implemented?
+q7: random restarts completely change result of training?
+
+
+    - dataloader
+
+    - logger, load/save model
+        - save model, optimizer state_dict pytorch
+        - save/load coach_state_dict
+        - save/load coach_hyperparams
+        - add clerk save dict method
+
+
+warping always backward, s.t. img2 is pulled back to img1
+
+tested warping and started to train with l1_loss
+
+output flow always at image resolution:
+    for training: 640x640
+    for evaluation: dependent of each image-pairs
+
+smoothness applied at level2: means smoothness is applied at 1/4th of the image resolution
+
+
+so predicted flow gets only resized to original resolution for evaluation?
+otherwise we have problems to load a batch of different sized images for training
+
+problem:
+    torch tensor does not support uint16
+    pil does not support uint16
+    skimage does not support uint16
+    pypng is apparently slow
+
+solution:
+    use cv2
+
+
+findout about inner resizing steps
+
+occlusion estiamtions: wang / brox
+
+census transform:
+input: rgb image
+output: difference for each pixel to its neighbors 7x7
+1. rgb to gray: bxhxwxc -> bxhxwx1
+2. neighbor intensities as channels: bxhxwx1 -> bxhxwx7*7 (padding with zeros)
+3. difference calculation: L1 / sqrt(0.81 + L1 ^ 2): bxhxwx7*7 (coefficient from DDFlow)
+
+soft hamming distance:
+input: census transformed images bxhxwxk
+output: difference between census transforms per pixel
+1. difference calculation per pixel, per features: L2 / (0.1 + L2)
+2. summation over features: bxhxwxk -> bxhxwx1
+
+census loss:
+1. hamming distance from census transformed rgb images
+2. robust loss for per pixel hamming distance: (| diff|+0.01)^0.4   (as in DDFlow)
+3. per pixel multiplication with zero mask at border s.t. every loss value close to border=0
+4. sum over all pixel and divide by number of pixel which were not zeroed out: sum(per_pixel_loss) / (num_pixels + 1e-6)
+
+
+ssim loss: [-1, 1]
+input: two rgb images[B, H, W, C],
+output: [B, H-2, W-2, C]
+note: patch size: 3x3
+note: coefficients: c1=float('inf'), c2=9e-6, c3=c2/2, eps=0.01
+x: BxHxWxC, weights: BxHxWx1, eps: 1
+weighted_avg_pool:
+avg_pool_3x3(x .* (weights+eps)) . / [avg_pool_3x3(weights) + eps]
+
+mu_x=weighted_avg_pool(x)
+mu_y
+sigma_x=weighted_avg_pool(x ^ 2) - mu_x ^ 2
+sigma_xy=weighted_avg_pool(x*y) - (mu_x * mu_y)
+dssim: clip((1 - ssim)/2, min=0, max=1) in [0, 1]
+
+q: why is c3 c2/2 for ssim?
+
+
+
+uflow adaption
+
+####### DONE #######
+
+pwc-net
+
+note: training procedure:
+    - wang occlusion instead of brox
+    - self supervision only after 500, 000 steps, and I am still at 100, 000 so it never was applied yet
+    - smoothness was applied for KITTI, smooth1=0.0 smooth2=2.0
+
+freezing teacher self-supervision: take model from previous epoch as teacher
+
+perform inference with learned model
+
+logging dependent on use_tensorboard
+
+testing log tensorboard
+training log tensorboard
+
+
+
+
+
+
+### SETUP ENVIRONMENT ###
+python3 - m venv venv
+virtualenv venv - p python3.6
+source venv/bin/activate
+pip install pip - -upgrade
+
+### UFLOW ###
+pip install - r git/uflow/requirements.txt
+pip install tensorflow-gpu >= 2.1.0
+#############
+
+
+###  SETUP DATASETS   ###
+scp leo@192.168.0.104: ~\MS_CS\Master-Project\optical_flow\datasets\FlyingChairs.zip .
+cd git
+
+unzip ../datasets/KITTI_flow
+python3 - m uflow.data_conversion_scripts.convert_KITTI_flow_to_tfrecords - -data_dir=../datasets/KITTI_flow
+python - m uflow.data_conversion_scripts.convert_KITTI_flow_to_tfrecords - -data_dir=datasets/KITTI_flow
+
+python3 - m uflow.data_conversion_scripts.convert_KITTI_multiview_to_tfrecords - -data_dir=../datasets/KITTI_flow_multiview
+python3 - m uflow.data_conversion_scripts.convert_KITTI_multiview_to_tfrecords - -data_dir=../datasets/KITTI_flow_multiview
+python - m uflow.data_conversion_scripts.convert_KITTI_multiview_to_tfrecords - -data_dir=datasets/KITTI_flow_multiview
+python - m uflow.data_conversion_scripts.convert_KITTI_multiview_to_tfrecords - -data_dir=datasets/KITTI_flow_multiview
+
+###  START TRAINING  ###
+
+python - m uflow.uflow_main \
+ - -train_on="kitti:../datasets/KITTI_flow_multiview/KITTI_flow_multiview_test_384x1280-tfrecords" \
+ - -checkpoint_dir="models" \
+ - -use_tensorboard=true \
+ - -tensorboard_logdir="tensorboard" \
+ - -plot_dir="plot" \
+ - -epoch_length=10 \
+ - -eval_on="kitti:../datasets/KITTI_flow/KITTI_flow_training-tfrecords" \
+ - -evaluate_during_train=true \
+ - -epoch_length=10
+
+python - m uflow.uflow_main ^
+ --train_on="kitti:datasets/KITTI_flow_multiview/KITTI_flow_multiview_test_384x1280-tfrecords" ^
+ --checkpoint_dir="models" ^
+ --use_tensorboard=true ^
+ --tensorboard_logdir="tensorboard" ^
+ --plot_dir="plot" ^
+ --eval_on="kitti:datasets/KITTI_flow/KITTI_flow_training-tfrecords" ^
+ --evaluate_during_train=true ^
+ --epoch_length=10
+
+
+(epoch-length=1000, )
+training 1 epoch: KITTI-flow-multiview-test: 222s
+testing 1 epoch: KITTI-flow-train: 73s
+
+'from_scratch'
+'checkpoint_dir', 'Path to directory for saving and restoring checkpoints.'
+'init_checkpoint_dir', 'Path to directory for initializing from a checkpoint.'
+
+
+use_tensorboard', False, 'Toggles logging to tensorboard.')
+flags.DEFINE_string('tensorboard_logdir
+
+python3 - m uflow.uflow_evaluator - -eval_on="kitti:../datasets/KITTI_flow/KITTI_flow_testing-tfrecords" - -plot_dir=tensorboard - -checkpoint_dir=models
+
+tensorboard - -logdir tensorboard
+ssh - L 6006: localhost: 6006 sommerl@aislogin.informatik.uni-freiburg.de
+ssh - L 6006: localhost: 6006 pearl9
+
+python3 - m pip install pip - -upgrade
+python3 - m pip install virtualenv
+### CONNECTION AIS PC-CLUSTER ###
+ssh sommerl@aislogin.informatik.uni-freiburg.de
+ssh-copy-id - i id_rsa_psiori.pub sommerl@aislogin.informatik.uni-freiburg.de
+ssh-copy-id pearl9
+
+
+scp - r KITTI_flow sommerl@aislogin.informatik.uni-freiburg.de: ~/master-project/datasets
+scp - r data_scene_flow_calib sommerl@aislogin.informatik.uni-freiburg.de: ~/master-project/datasets/KITTI_flow
+
+start: python coach.py - s config/config_setup_0.yaml - c config/config_coach_0.yaml
+
+###   STATS AIS PC-CLUSTER    ###
+
+show disk space
+df - h
+
+show free memory(RAM)
+free - m - h
+
+show GPU
+nvida-smi
+
+show CPU:
+lscpu
+
+show CUDA version:
+cat / usr/local/cuda/version.txt
+
+show cudnn version:
+cat / usr/local/cuda/include/cudnn.h | grep CUDNN_MAJOR - A 2
+
+q: tensorflow requires cudnn to run, but on pearl pcs there is no cudnn installation by default?
+
+### install cudnn locally###
+
+scp ~/Downloads/cudnn-10.1-linux-x64-v7.6.5.32.tgz sommerl@aislogin.informatik.uni-freiburg.de
+
+tar - xzvf cudnn-x.x-linux-x64-v8.x.x.x.tgz
+
+Copy the following files into the CUDA Toolkit directory, and change the file permissions.
+
+cp cuda/include/cudnn*.h ~/.local/cuda/include
+cp cuda/lib64/libcudnn * ~/.local/cuda/lib64
+chmod a+r ~/.local/cuda/include/cudnn*.h ~/.local/cuda/lib64/libcudnn *
+
+
+Add the library to your environment. This is typically done adding this following two lines to your ~/.bashrc file ( in this example, the < CUDA > directory was ~/cuda9/:
+
+export PATH=~/.local/cuda/bin: $PATH
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH: ~/.local/cuda/lib64 /
+
+### install cuda locally###
+wget http: // developer.download.nvidia.com/compute/cuda/11.0.1/local_installers/cuda_11.0.1_450.36.06_linux.run
+sh cuda_11.0.1_450.36.06_linux.run
+
+##### not working because i have no rights :/ ######
+
+1: nano ~/.ssh/config
+
+2: add to file:
+Host *
+    StrictHostKeyChecking no
+
+3: change rights
+sudo chmod 400 ~/.ssh/config
+
+
+####  setup GPU windows  ####
+
+1. Install Driver
+https: // www.nvidia.de/Download/index.aspx?lang=de
+RTX2080TI Windows10 GRD Deutsch
+
+
+2. Install Cuda 10.1 (works for tensorflow and pytorch)
+
+https: // docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows /
+requires:
+    - installation driver
+    - visual studio
+
+download:
+https: // developer.nvidia.com/cuda-10.1-download-archive-base?target_os=Windows & target_arch=x86_64 & target_version=10
+
+check version: nvcc - V
+
+3. Install cudnn 7.6.5 (works for cuda 10.1)
+
+https: // docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html
+
+jupyter-notebook
+conda install ipykernel jupyter
+python - m ipykernel install - -user - -name tf-gpu - -display-name "TensorFlow-GPU-1.13"
+
+4. set environment variables for cuda 10.1: bin; extras\CUPTI\lib64; include
+SET PATH=C: \Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1\bin; % PATH %
+SET PATH=C: \Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1\extras\CUPTI\lib64; % PATH %
+SET PATH=C: \Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.1\include; % PATH %
+
+
+##
+sommerl@login.informatik.uni-freiburg.de

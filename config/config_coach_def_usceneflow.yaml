@@ -1,0 +1,202 @@
+[defaults]
+# Model options
+# if no model-tag is provided, a new model is created
+#2020_08_25_v5 map input rgb from [0, 1] to [-1, 1] in forward pass
+#2020_08_25_v4 only forward training
+#2020_08_25_v3 experiment non-occlusion masks
+#2020_08_25_v2 added edge weight 150
+#2020_09_02_v1
+#2020_10_21_v8
+
+runs-dir: sceneflow_models
+
+project-name: sceneflow
+team-name: oranges
+wandb-log-metrics: True
+wandb-log-state: False
+wandb-log-model: False
+
+run-start: new
+
+#run-id:    leo-tower_2021_01_11_v6
+model-load-tag: latest
+
+run-tag: None
+#depth-abs-rel  oflow-epe-occ
+name-decisive-loss: A-eval/depth-abs-rel
+
+# TRAIN
+train-seed: 23
+train-dataset-name: kitti-raw-smsf-eigen-zhou
+# kitti-raw-smsf, kitti-raw-smsf-eigen-zhou, kitti-multiview, kitti-val
+
+train-limit-batches: 1.0
+val-limit-batches: 1.0
+#train-limit-num-batches: 10
+#train-dataset-max-num-imgs: 10
+#val-dataset-max-num-imgs: 10
+#epoch-length: 10
+
+train-num-epochs-max: 30
+val-every-n-epoch: 1
+train-precision: 32 # 16 or 32
+train-accumulate-grad-batches: 1
+train-batch-size: 1
+
+# TEST
+test-sflow-via-disp-se3: False
+
+# LOSSES
+loss-balance-sf-disp: True
+
+loss-lvl-weights: [4., 0., 2., 1., 1., 1.] # [4., 4., 2., 1., 1., 1.]
+
+loss-disp-photo-lambda: 2.0 # 2.0
+
+loss-disp-smooth-lambda: 0.00048 #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+# * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+loss-disp-smooth-order: 2
+loss-disp-smooth-edgeweight: 10 # 150 -> 15
+
+loss-disp-flow-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-flow-cons3d-type: smsf # smsf or chamfer
+
+#loss-flow-se3cons-lambda: 0.
+#loss-flow-se3cons-norm-p: 2
+
+loss-flow-photo-lambda: 2 # 2. # 2.0
+loss-photo-type: ssim # census or ssim
+
+loss-flow-smooth-lambda: 800. # 800. # 800 # 800 # 200 * 2 * 2= 800
+loss-flow-smooth-order: 2
+loss-flow-smooth-edgeweight: 10 # 150 -> 15 | 10 / 2 (because img_gradient have stride=2)
+
+loss-flow-teacher-crop-lambda: 0.0
+loss-flow-teacher-crop-begin-epoch: 150
+loss-flow-teacher-crop-reduction-size: 64
+loss-flow-teacher-crop-rampup-epochs: 100
+
+loss-se3-diversity-lambda: 0.
+
+loss-disp-se3-photo-lambda: 0 # 2. # 2.0
+loss-disp-se3-photo-fwdbwd: True
+
+loss-disp-se3-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-se3-cons3d-type: smsf # smsf or chamfer
+loss-disp-se3-cons3d-fwdbwd: True
+
+loss-mask-cons-oflow-lambda: 0.
+loss-mask-cons-oflow-fwdbwd: True
+
+loss-disp-se3-proj2oflow-corr3d-joint-lambda: 0.
+loss-disp-se3-proj2oflow-corr3d-separate-lambda: 0.
+loss-disp-se3-proj2oflow-corr3d-separate-use-mask-from-loss: False
+loss-disp-se3-proj2oflow-corr3d-separate-mask-lambda: 0.
+loss-disp-se3-proj2oflow-corr3d-separate-mask-uncertainty-slope: 0.1
+loss-disp-se3-proj2oflow-corr3d-separate-mask-uncertainty-offset: 1.5
+loss-disp-se3-proj2oflow-cross3d-score-const-weight: 1.0
+loss-disp-se3-proj2oflow-cross3d-score-linear-weight: 10.0
+loss-disp-se3-proj2oflow-cross3d-score-exp-weight: 10.0
+loss-disp-se3-proj2oflow-cross3d-score-exp-slope: 500.0
+loss-disp-se3-proj2oflow-cross3d-outlier-slope: 0.1
+loss-disp-se3-proj2oflow-cross3d-outlier-min: 0.1
+loss-disp-se3-proj2oflow-cross3d-outlier-max: 0.9
+loss-disp-se3-proj2oflow-cross3d-max: 0.1
+loss-disp-se3-proj2oflow-cross3d-min: 0.001
+loss-disp-se3-proj2oflow-corr3d-mask-certainty-slope: 500
+loss-disp-se3-proj2oflow-corr3d-pxl-certainty-slope: 100
+loss-disp-se3-proj2oflow-fwdbwd: True
+loss-disp-se3-proj2oflow-level0-only: False
+
+loss-disp-se3-cons-oflow-lambda: 0.
+loss-disp-se3-cons-oflow-type: smsf # smsf or chamfer
+loss-disp-se3-cons-oflow-fwdbwd: True
+
+loss-masks-non-occlusion-binary: True
+loss-nonzeromask-thresh-perc: 0.5
+
+loss-mask-reg-nonzero-lambda: 0.
+
+loss-pts3d-norm-detach: False
+loss-smooth-type: smsf
+
+loss-mask-smooth-lambda: 0.0
+loss-mask-smooth-order: 2
+loss-mask-smooth-edgeweight: 10
+
+
+# ARCHITECTURE
+
+arch-res-width: 832
+arch-res-height: 256
+
+arch-leaky-relu-negative-slope: 0.1
+
+arch-modules-features-channels: [3, 32, 64, 96, 128, 192, 256]
+# actually smsf: [3, 32, 64, 96, 128, 192, 256]
+# default / uflow: [3, 32, 32, 32, 32, 32]
+# sflow-mono-sf [3, 16, 32, 64, 96, 128, 196]
+arch-modules-features-convs-per-lvl: 2 # 2 or 3
+
+arch-cost-volume-normalize-features: False
+
+arch-detach-context-disp-flow-lvlwise: False
+arch-detach-context-disp-flow-before-refinement: False
+
+arch-context-out-channels: 32
+arch-context-dropout: False
+arch-context-densenet: False
+
+arch-flow-out-channels: 3
+arch-flow-dropout: False
+arch-flow-res: False
+arch-flow-encoder-type: pwcnet
+
+arch-disp-separate: True
+arch-disp-encoder: resnet #resnet | unet | none
+arch-disp-encoder-channels: [64, 64, 128, 256, 512] # note: only affects if encoder: unet | none
+# in case of none this should be equal to last elements of arch-modules-features-channels
+arch-disp-out-channels: 1
+arch-disp-dropout: False
+arch-disp-res: False
+arch-disp-activation-before-refinement: False
+arch-disp-activation: sigmoid # sigmoid | relu
+arch-disp-rel-inside-model: True
+
+arch-mask-out-init-bias: minus_ten
+arch-mask-activation: sigmoid
+# identity, sigmoid, relu, softmax, sigmoid+normalization (default: sigmoid)
+
+arch-se3-egomotion-addition: True
+arch-se3-encoded-cat-oflow: False
+arch-se3-translation-sensitivity: 0.01
+arch-se3-rotation-sensitivity: 0.001
+
+arch-module-se3-outs: 6
+# sfmlearner2017
+# monodepth2
+arch-module-se3-resnet-encoder: True
+arch-module-se3-input: imgpair # imgpair | features | context
+arch-module-se3-intermediate-channels: [256, 256, 256]
+arch-module-se3-intermediate-kernelsizes: [1, 3, 3]
+arch-module-se3-intermediate-strides: [1, 1, 1]
+
+arch-modules-masks-num-outs: 3
+
+# Training options
+eval-forward-backward:       True
+train-with-occlusion-masks:  True
+occlusion-masks-type:        wang
+occlusion-brox-begin-epoch:  2
+
+# Optimization options
+optimization: adam
+lr:           0.0002 # 0.0002 -> 0.00002
+lr-scheduler-steps: [23, 39, 47, 54]
+
+# momentum is not passed through for adam.
+momentum:     0.0
+weight-decay: 0.0
+
+# Display/Save options
+eval-save-visualizations:  True

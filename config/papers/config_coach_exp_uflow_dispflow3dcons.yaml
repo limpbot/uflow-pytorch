@@ -1,0 +1,71 @@
+[defaults]
+#config/papers/config_coach_exp_uflow_dispflow3dcons.yaml
+#run-id: 2021_02_17_v22_oflow
+run-tag: uflow_dispflow3dcons
+#run-tag: default
+run-start: new
+
+wandb-log-metrics: True
+wandb-log-state: True
+wandb-log-model: False
+
+arch-context-out-channels: 32
+arch-context-dropout: True
+arch-context-densenet: True
+
+arch-flow-out-channels: 2
+arch-flow-dropout: True
+
+arch-disp-encoder: resnet #resnet | unet | none
+arch-disp-separate: True
+arch-disp-out-channels: 1
+arch-disp-dropout: False
+arch-disp-res: False
+arch-disp-activation-before-refinement: False
+arch-disp-activation: identity # sigmoid | relu
+arch-disp-rel-inside-model: False
+
+arch-modules-features-channels: [3, 32, 64, 96, 128, 192, 256]
+# actually smsf: [3, 32, 64, 96, 128, 192, 256]
+# default / uflow: [3, 32, 32, 32, 32, 32]
+# sflow-mono-sf [3, 16, 32, 64, 96, 128, 196]
+
+loss-lvl-weights: [4., 0., 2., 1., 1., 1.] # [4., 4., 2., 1., 1., 1.]
+
+loss-disp-photo-lambda: 2.0 # 2.0
+
+loss-disp-smooth-lambda: 2. #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+# * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+loss-disp-smooth-order: 2
+loss-disp-smooth-edgeweight: 150 # 150 -> 15
+
+loss-disp-flow-cons3d-lambda: 0.4 # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-flow-cons3d-type: smsf # smsf or chamfer
+
+loss-disp-se3-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-se3-cons3d-type: smsf # smsf or chamfer
+loss-disp-se3-cons3d-fwdbwd: True
+
+loss-flow-photo-lambda: 2. # 2. # 2.0
+loss-photo-type: ssim # census or ssim
+
+
+loss-flow-smooth-lambda: 2. # 800. # 800 # 800 # 200 * 2 * 2= 800
+loss-flow-smooth-order: 2
+loss-flow-smooth-edgeweight: 150 # 150 -> 15 | 10 / 2 (because img_gradient have stride=2)
+
+train-dataset-name: kitti-multiview
+train-seed: 34
+train-batch-size: 1
+train-accumulate-grad-batches: 1
+train-num-epochs-max: 200
+
+# Optimization options
+optimization: adam
+lr:           0.0002 # 0.0002 -> 0.00002
+lr-scheduler-steps: [40, 80, 120, 160]
+
+# momentum is not passed through for adam.
+momentum:     0.0
+weight-decay: 0.0
+

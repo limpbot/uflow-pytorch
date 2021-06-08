@@ -1,0 +1,26 @@
+[defaults]
+#config/present/config_presenter_0.yaml
+wandb-log-metrics: True
+wandb-log-state: True
+wandb-log-model: True
+
+#config/present/config_presenter_0.yaml
+run-tag: presenter
+
+#run-id: 2021_03_15_v43_r7e3_disp_lr2e-4_smooth2
+#run-id: 2021_04_08_v64_r10e7_disp_se3_mask5_val_noegoadd_mot50
+#run-id: 2021_04_12_v3_r10e11_disp_se3_mask5_val_noegoadd_mot50mask_se3div01
+#run-id: 2021_04_12_v9_r11e15_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0
+#run-id: 2021_04_12_v19_r10e14_disp_se3_mask5_val200_egoadd_mot50
+#run-id: 2021_04_13_v51_r12e6_disp_se3_mask0_trainall_smsf
+run-id: 2021_04_15_v6_r12e10_disp_se3_mask5_trainall_kittimultiview_preloadse3
+#run-id: 2021_04_16_v3_r12e19_disp_se3_mask3_trainall_kittimultiview_preloadse3_dispse3photo5
+#run-id: 2021_04_15_v5_oflow
+#run-id: 2021_04_17_v390_uflow_teachercrop
+#run-id: 2021_04_17_v39_uflow_teachercrop
+#2021_04_19_v25_uflow
+#run-id: 2021_04_19_v21_smsf
+#run-tag: default
+run-start: present
+
+

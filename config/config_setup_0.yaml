@@ -1,0 +1,8 @@
+[defaults]
+# Dataset options
+datasets-dir: /media/driveD/datasets
+
+# optional: specify different parent for models than working directory
+parent-runs-dir: /media/driveD/models
+
+dataloader-num-workers: 3

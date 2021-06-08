@@ -1,0 +1,10 @@
+[defaults]
+run-tag: disp_residual_identity
+loss-pts3d-norm-detach: True
+
+arch-disp-activation-before-refinement: True
+arch-disp-activation: identity # sigmoid | relu
+arch-disp-res: True
+
+
+

@@ -1,0 +1,125 @@
+[defaults]
+#config/exps/r11/config_coach_exp_r11e19_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0_maskse3div01.yaml
+#run-id: 2021_04_10_v5_r11e4_disp_se3_mask5_addego
+run-tag: r11e19_disp_se3_mask5_nonaddego_lr2e-4_dispse3photo0_maskse3div01
+#run-tag: default
+run-start: new
+
+model-load-modules: {
+   '2021_03_15_v43_r7e3_disp_lr2e-4_smooth2': ['module_flow', 'module_disp'],
+  }
+model-freeze-modules: [
+   'module_flow',
+   ]
+
+wandb-log-metrics: True
+wandb-log-state: True
+wandb-log-model: True
+
+arch-context-out-channels: 32
+arch-context-dropout: True
+arch-context-densenet: True
+
+arch-flow-out-channels: 2
+arch-flow-dropout: True
+arch-flow-res: True
+arch-flow-encoder-type: pwcnet
+
+arch-disp-encoder: resnet #resnet | unet | none
+arch-disp-separate: True
+arch-disp-out-channels: 1
+arch-disp-dropout: False
+arch-disp-res: False
+arch-disp-activation-before-refinement: False
+arch-disp-activation: identity # sigmoid | relu
+arch-disp-rel-inside-model: False
+
+arch-se3-egomotion-addition: False
+arch-se3-encoded-cat-oflow: False
+
+loss-balance-sf-disp: False
+
+loss-lvl-weights: [4., 0., 2., 1., 1., 1.] # [4., 4., 2., 1., 1., 1.]
+
+loss-disp-photo-lambda: 2.0 # 2.0
+
+loss-disp-smooth-lambda: 2. #0.1 / 832 * 2 * 2 = 0.00012 * 4 = 0.00048
+# * 2 cause of disp1/disp2 , * 2 cause of grad_x, grad_y
+loss-disp-smooth-order: 2
+loss-disp-smooth-edgeweight: 150 # 150 -> 15
+
+loss-disp-flow-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-flow-cons3d-type: smsf # smsf or chamfer
+
+loss-flow-photo-lambda: 0. # 2. # 2.0
+loss-photo-type: ssim # census or ssim
+
+loss-flow-smooth-lambda: 0. # 800. # 800 # 800 # 200 * 2 * 2= 800
+loss-flow-smooth-order: 2
+loss-flow-smooth-edgeweight: 150 # 150 -> 15 | 10 / 2 (because img_gradient have stride=2)
+
+loss-disp-se3-photo-lambda: 0. # 2. # 2.0
+loss-disp-se3-photo-fwdbwd: False
+
+loss-disp-se3-cons3d-lambda: 0. # 0.4 # 0.2 * 2 = 0.4 (2. * forward - backward)
+loss-disp-se3-cons3d-type: smsf # smsf or chamfer
+loss-disp-se3-cons3d-fwdbwd: False
+
+loss-disp-se3-cons-oflow-lambda: 0.
+loss-disp-se3-cons-oflow-type: smsf # smsf or chamfer
+loss-disp-se3-cons-oflow-fwdbwd: True
+
+loss-se3-diversity-lambda: 0.1
+
+loss-disp-se3-proj2oflow-corr3d-joint-lambda: 0
+loss-disp-se3-proj2oflow-corr3d-separate-lambda: 50
+loss-disp-se3-proj2oflow-corr3d-separate-mask-lambda: 50
+loss-disp-se3-proj2oflow-corr3d-separate-use-mask-from-loss: True
+loss-disp-se3-proj2oflow-cross3d-score-const-weight: 1.0
+loss-disp-se3-proj2oflow-cross3d-score-linear-weight: 10.0
+loss-disp-se3-proj2oflow-cross3d-score-exp-weight: 10.0
+loss-disp-se3-proj2oflow-cross3d-score-exp-slope: 300.0
+loss-disp-se3-proj2oflow-cross3d-outlier-slope: 0.1
+loss-disp-se3-proj2oflow-cross3d-outlier-min: 0.1
+loss-disp-se3-proj2oflow-cross3d-outlier-max: 0.9
+loss-disp-se3-proj2oflow-cross3d-max: 0.1
+loss-disp-se3-proj2oflow-cross3d-min: 0.001
+loss-disp-se3-proj2oflow-fwdbwd: False
+loss-disp-se3-proj2oflow-level0-only: True
+
+loss-mask-cons-oflow-lambda: 0.1
+loss-mask-cons-oflow-fwdbwd: False
+
+loss-mask-reg-nonzero-lambda: 0. #0.001
+
+loss-mask-smooth-lambda: 1
+loss-mask-smooth-order: 1
+loss-mask-smooth-edgeweight: 150
+
+#train-dataset-name: kitti-val
+#train-dataset-max-num-imgs: 50
+#train-dataset-index-shift: 0
+#val-dataset-max-num-imgs: 50
+#val-dataset-index-shift: 0
+train-seed: 34
+train-batch-size: 4
+train-accumulate-grad-batches: 2
+train-num-epochs-max: 50
+#val-every-n-epoch: 20
+
+test-sflow-via-disp-se3: True
+
+lr:           0.0002
+#lr-scheduler-steps: [5, 10, 15, 20, 25]
+
+# monodepth2
+arch-module-se3-resnet-encoder: True
+arch-module-se3-input: imgpair # imgpair | features | context
+arch-module-se3-intermediate-channels: [256, 256, 256]
+arch-module-se3-intermediate-kernelsizes: [1, 3, 3]
+arch-module-se3-intermediate-strides: [1, 1, 1]
+
+arch-modules-masks-num-outs: 5
+arch-mask-out-init-bias: minus_one_c0_one # zero minus_ten zero_c0_ten
+arch-mask-activation: softmax
+# identity, sigmoid, relu, softmax, sigmoid+normalization (default: sigmoid)

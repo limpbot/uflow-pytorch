@@ -245,8 +245,8 @@ class Presenter:
             erode_patchsize = 3
             erode_threshold = 0.2
 
-            visualize_single_masks = False
-            no_gt = True
+            visualize_single_masks = True
+            no_gt = False
 
             if no_gt:
                 gt_pts3d_l1 = pts3d_l1

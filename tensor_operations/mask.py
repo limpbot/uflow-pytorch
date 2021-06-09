@@ -214,7 +214,7 @@ def filter_interconnected(objects_masks, dists_div, rigid_dists_max_div):
         dists_div_masked = dists_div[objects_masks[k, None, :] * objects_masks[k, :, None]]
         num_pixel = int(dists_div_masked.shape[0] ** 0.5)
         dists_div_masked = dists_div_masked.reshape(num_pixel, num_pixel)
-        interconnected_masked = torch.mean(1.0 * (dists_div_masked < rigid_dists_max_div), dim=1) > 0.5
+        interconnected_masked = torch.mean(1.0 * (dists_div_masked < rigid_dists_max_div), dim=1) > 0.7
         interconnected = torch.ones_like(objects_masks[0], dtype=torch.bool)
         interconnected[objects_masks[k]] = interconnected_masked
         objects_masks[k] *= interconnected
